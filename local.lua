@@ -1268,7 +1268,7 @@ local function CreateMainGUI()
 	end
 
 	SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
-		UpdateSearchResults(SearchResults, SearchInput.Text)
+		UpdateSearchResults(SearchResults, SearchInput.Text, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, WavesFrame)
 	end)
 
 	SendButton.MouseButton1Click:Connect(function()
@@ -1403,9 +1403,17 @@ local function GetCurrentMusicIndex()
 end
 
 local function PlayMusicAtIndex(index, playerBar, songInfo, artistInfo, playButton, wavesFrame)
-	if index < 1 or index > #musicLibrary then return end
+	if index < 1 or index > #musicLibrary then 
+		warn("Índice fuera de rango:", index)
+		return 
+	end
 	
 	local musicData = musicLibrary[index]
+	
+	if not musicData then
+		warn("No se encontró la música en el índice:", index)
+		return
+	end
 	
 	if musicData.Status == "blocked" or musicData.Status == "disabled" then
 		ShowNotification(gui, "⚠️ Esta música no está disponible", Color3.fromRGB(255, 152, 0))
@@ -1462,8 +1470,12 @@ local function PlayMusicAtIndex(index, playerBar, songInfo, artistInfo, playButt
 			if fsArtistName then fsArtistName.Text = musicData.Artist .. " • " .. (musicData.Album or "") end
 			if fsPlayButton then fsPlayButton.Text = "❚❚" end
 		end
+		
+		ShowNotification(gui, "▶ Reproduciendo: " .. musicData.Title, Color3.fromRGB(76, 175, 80))
+		print("✓ Reproduciendo:", musicData.Title, "| ID:", musicData.SoundId)
 	else
 		warn("Error al reproducir música:", err)
+		ShowNotification(gui, "❌ Error al reproducir. Verifica el ID de sonido", Color3.fromRGB(211, 47, 47))
 		if currentSound then
 			currentSound:Destroy()
 			currentSound = nil
@@ -1844,13 +1856,10 @@ musicLibrary = RequestMusicList:InvokeServer()
 UpdateLibrary(libraryPanel, playerBar, songInfo, artistInfo, playButton, wavesFrame)
 local searchResults = searchPanel:FindFirstChild("SearchResults")
 local searchInput = searchPanel:FindFirstChild("SearchInput")
-if searchResults then
-	UpdateSearchResults(searchResults, "", playerBar, songInfo, artistInfo, playButton, wavesFrame)
-	if searchInput then
-		searchInput:GetPropertyChangedSignal("Text"):Connect(function()
-			UpdateSearchResults(searchResults, searchInput.Text, playerBar, songInfo, artistInfo, playButton, wavesFrame)
-		end)
-	end
+if searchResults and searchInput then
+	searchInput:GetPropertyChangedSignal("Text"):Connect(function()
+		UpdateSearchResults(searchResults, searchInput.Text, playerBar, songInfo, artistInfo, playButton, wavesFrame)
+	end)
 end
 
 if isAdmin then
