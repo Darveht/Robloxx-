@@ -1,3 +1,4 @@
+
 -- LocalScript
 
 local Players = game:GetService("Players")
@@ -26,6 +27,8 @@ local currentSound = nil
 local musicLibrary = {}
 local verificationRequests = {}
 local currentPlayingId = nil
+local currentMusicData = nil
+local isFullscreen = false
 
 -----
 
@@ -37,37 +40,46 @@ local function CreateMainGUI()
 	ScreenGui.Name = "AmazonMusicGUI"
 	ScreenGui.ResetOnSpawn = false
 	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	ScreenGui.IgnoreGuiInset = true  -- Para expandir a margen a margen, ignorando la barra superior de Roblox
+	ScreenGui.IgnoreGuiInset = true
 	ScreenGui.Parent = playerGui
 
-	-- Fondo principal (full screen, estilo TikTok: negro)
+	-- Fondo principal (estilo Amazon Music: degradado oscuro)
 	local MainFrame = Instance.new("Frame")
 	MainFrame.Name = "MainFrame"
 	MainFrame.Size = UDim2.new(1, 0, 1, 0)
 	MainFrame.Position = UDim2.new(0, 0, 0, 0)
-	MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	MainFrame.BackgroundColor3 = Color3.fromRGB(11, 14, 17)
 	MainFrame.BorderSizePixel = 0
 	MainFrame.Parent = ScreenGui
 
-	-- Barra superior (ajustada a estilo TikTok, sin márgenes)
+	-- Gradiente de fondo
+	local Gradient = Instance.new("UIGradient")
+	Gradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(11, 14, 17)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 28, 34))
+	}
+	Gradient.Rotation = 45
+	Gradient.Parent = MainFrame
+
+	-- Barra superior (estilo Amazon Music)
 	local TopBar = Instance.new("Frame")
 	TopBar.Name = "TopBar"
-	TopBar.Size = UDim2.new(1, 0, 0, 60)
+	TopBar.Size = UDim2.new(1, 0, 0, 70)
 	TopBar.Position = UDim2.new(0, 0, 0, 0)
-	TopBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	TopBar.BackgroundColor3 = Color3.fromRGB(17, 21, 26)
 	TopBar.BorderSizePixel = 0
 	TopBar.Parent = MainFrame
 
-	-- Logo
+	-- Logo Amazon Music
 	local Logo = Instance.new("TextLabel")
 	Logo.Name = "Logo"
-	Logo.Size = UDim2.new(0, 250, 1, 0)
-	Logo.Position = UDim2.new(0, 10, 0, 0)
+	Logo.Size = UDim2.new(0, 300, 1, 0)
+	Logo.Position = UDim2.new(0, 20, 0, 0)
 	Logo.BackgroundTransparency = 1
 	Logo.Text = "🎵 Amazon Music"
-	Logo.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Logo.TextColor3 = Color3.fromRGB(28, 184, 231) -- Color azul Amazon
 	Logo.Font = Enum.Font.GothamBold
-	Logo.TextSize = 24
+	Logo.TextSize = 28
 	Logo.TextXAlignment = Enum.TextXAlignment.Left
 	Logo.Parent = TopBar
 
@@ -75,8 +87,8 @@ local function CreateMainGUI()
 	local CloseButton = Instance.new("TextButton")
 	CloseButton.Name = "CloseButton"
 	CloseButton.Size = UDim2.new(0, 50, 0, 50)
-	CloseButton.Position = UDim2.new(1, -50, 0.5, -25)
-	CloseButton.BackgroundTransparency = 1
+	CloseButton.Position = UDim2.new(1, -60, 0.5, -25)
+	CloseButton.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
 	CloseButton.Text = "✕"
 	CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	CloseButton.Font = Enum.Font.GothamBold
@@ -84,18 +96,22 @@ local function CreateMainGUI()
 	CloseButton.BorderSizePixel = 0
 	CloseButton.Parent = TopBar
 
+	local CloseCorner = Instance.new("UICorner")
+	CloseCorner.CornerRadius = UDim.new(0, 10)
+	CloseCorner.Parent = CloseButton
+
 	CloseButton.MouseButton1Click:Connect(function()
 		MainFrame.Visible = false
 		if currentSound then
-			currentSound:Stop()
+			currentSound:Pause()
 		end
 	end)
 
-	-- Área de contenido (sin márgenes)
+	-- Área de contenido
 	local ContentArea = Instance.new("Frame")
 	ContentArea.Name = "ContentArea"
-	ContentArea.Size = UDim2.new(1, 0, 1, -120)
-	ContentArea.Position = UDim2.new(0, 0, 0, 60)
+	ContentArea.Size = UDim2.new(1, 0, 1, -190)
+	ContentArea.Position = UDim2.new(0, 0, 0, 70)
 	ContentArea.BackgroundTransparency = 1
 	ContentArea.BorderSizePixel = 0
 	ContentArea.Parent = MainFrame
@@ -103,83 +119,88 @@ local function CreateMainGUI()
 	-- Panel de Biblioteca
 	local LibraryPanel = Instance.new("ScrollingFrame")
 	LibraryPanel.Name = "LibraryPanel"
-	LibraryPanel.Size = UDim2.new(1, 0, 1, 0)
-	LibraryPanel.Position = UDim2.new(0, 0, 0, 0)
+	LibraryPanel.Size = UDim2.new(1, -40, 1, 0)
+	LibraryPanel.Position = UDim2.new(0, 20, 0, 0)
 	LibraryPanel.BackgroundTransparency = 1
 	LibraryPanel.BorderSizePixel = 0
-	LibraryPanel.ScrollBarThickness = 6
-	LibraryPanel.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+	LibraryPanel.ScrollBarThickness = 8
+	LibraryPanel.ScrollBarImageColor3 = Color3.fromRGB(28, 184, 231)
 	LibraryPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
 	LibraryPanel.Parent = ContentArea
 	LibraryPanel.Visible = true
 
 	local LibraryLayout = Instance.new("UIListLayout")
 	LibraryLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	LibraryLayout.Padding = UDim.new(0, 5)
+	LibraryLayout.Padding = UDim.new(0, 12)
 	LibraryLayout.Parent = LibraryPanel
 
 	LibraryLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		LibraryPanel.CanvasSize = UDim2.new(0, 0, 0, LibraryLayout.AbsoluteContentSize.Y + 10)
+		LibraryPanel.CanvasSize = UDim2.new(0, 0, 0, LibraryLayout.AbsoluteContentSize.Y + 20)
 	end)
 
 	-- Panel de Búsqueda
 	local SearchPanel = Instance.new("Frame")
 	SearchPanel.Name = "SearchPanel"
-	SearchPanel.Size = UDim2.new(1, 0, 1, 0)
-	SearchPanel.Position = UDim2.new(0, 0, 0, 0)
+	SearchPanel.Size = UDim2.new(1, -40, 1, 0)
+	SearchPanel.Position = UDim2.new(0, 20, 0, 0)
 	SearchPanel.BackgroundTransparency = 1
 	SearchPanel.Visible = false
 	SearchPanel.Parent = ContentArea
 
 	local SearchInput = Instance.new("TextBox")
 	SearchInput.Name = "SearchInput"
-	SearchInput.Size = UDim2.new(1, 0, 0, 40)
+	SearchInput.Size = UDim2.new(1, 0, 0, 50)
 	SearchInput.Position = UDim2.new(0, 0, 0, 0)
-	SearchInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	SearchInput.PlaceholderText = "Buscar música..."
-	SearchInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+	SearchInput.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	SearchInput.PlaceholderText = "🔍 Buscar canciones, artistas..."
+	SearchInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
 	SearchInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 	SearchInput.Font = Enum.Font.Gotham
-	SearchInput.TextSize = 16
+	SearchInput.TextSize = 18
+	SearchInput.TextXAlignment = Enum.TextXAlignment.Left
 	SearchInput.Parent = SearchPanel
 
+	local SearchPadding = Instance.new("UIPadding")
+	SearchPadding.PaddingLeft = UDim.new(0, 15)
+	SearchPadding.Parent = SearchInput
+
 	local SearchCorner = Instance.new("UICorner")
-	SearchCorner.CornerRadius = UDim.new(0, 20)
+	SearchCorner.CornerRadius = UDim.new(0, 25)
 	SearchCorner.Parent = SearchInput
 
 	local SearchResults = Instance.new("ScrollingFrame")
 	SearchResults.Name = "SearchResults"
-	SearchResults.Size = UDim2.new(1, 0, 1, -40)
-	SearchResults.Position = UDim2.new(0, 0, 0, 40)
+	SearchResults.Size = UDim2.new(1, 0, 1, -65)
+	SearchResults.Position = UDim2.new(0, 0, 0, 65)
 	SearchResults.BackgroundTransparency = 1
-	SearchResults.ScrollBarThickness = 6
-	SearchResults.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+	SearchResults.ScrollBarThickness = 8
+	SearchResults.ScrollBarImageColor3 = Color3.fromRGB(28, 184, 231)
 	SearchResults.CanvasSize = UDim2.new(0, 0, 0, 0)
 	SearchResults.Parent = SearchPanel
 
 	local SearchLayout = Instance.new("UIListLayout")
 	SearchLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	SearchLayout.Padding = UDim.new(0, 5)
+	SearchLayout.Padding = UDim.new(0, 12)
 	SearchLayout.Parent = SearchResults
 
 	SearchLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		SearchResults.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 10)
+		SearchResults.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 20)
 	end)
 
 	-- Panel de Verificación
 	local VerifyPanel = Instance.new("Frame")
 	VerifyPanel.Name = "VerifyPanel"
-	VerifyPanel.Size = UDim2.new(1, 0, 1, 0)
-	VerifyPanel.Position = UDim2.new(0, 0, 0, 0)
+	VerifyPanel.Size = UDim2.new(1, -40, 1, 0)
+	VerifyPanel.Position = UDim2.new(0, 20, 0, 0)
 	VerifyPanel.BackgroundTransparency = 1
 	VerifyPanel.Visible = false
 	VerifyPanel.Parent = ContentArea
 
 	local Instructions = Instance.new("TextLabel")
-	Instructions.Size = UDim2.new(1, 0, 0, 100)
-	Instructions.Position = UDim2.new(0, 0, 0, 0)
+	Instructions.Size = UDim2.new(1, 0, 0, 120)
+	Instructions.Position = UDim2.new(0, 0, 0, 20)
 	Instructions.BackgroundTransparency = 1
-	Instructions.Text = "Si quieres ser verificado, envía un mensaje a los administradores oficiales."
+	Instructions.Text = "✅ Verificación de Artista\n\nSi eres un artista y quieres verificar tu cuenta,\nenvía un mensaje a los administradores."
 	Instructions.TextColor3 = Color3.fromRGB(255, 255, 255)
 	Instructions.Font = Enum.Font.Gotham
 	Instructions.TextSize = 16
@@ -187,91 +208,107 @@ local function CreateMainGUI()
 	Instructions.Parent = VerifyPanel
 
 	local MessageBox = Instance.new("TextBox")
-	MessageBox.Size = UDim2.new(1, 0, 0, 150)
-	MessageBox.Position = UDim2.new(0, 0, 0, 100)
-	MessageBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	MessageBox.Size = UDim2.new(1, 0, 0, 180)
+	MessageBox.Position = UDim2.new(0, 0, 0, 150)
+	MessageBox.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
 	MessageBox.PlaceholderText = "Escribe tu mensaje aquí..."
-	MessageBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+	MessageBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
 	MessageBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 	MessageBox.Font = Enum.Font.Gotham
-	MessageBox.TextSize = 14
+	MessageBox.TextSize = 16
 	MessageBox.MultiLine = true
+	MessageBox.TextWrapped = true
+	MessageBox.TextXAlignment = Enum.TextXAlignment.Left
+	MessageBox.TextYAlignment = Enum.TextYAlignment.Top
 	MessageBox.Parent = VerifyPanel
 
+	local MessagePadding = Instance.new("UIPadding")
+	MessagePadding.PaddingLeft = UDim.new(0, 15)
+	MessagePadding.PaddingRight = UDim.new(0, 15)
+	MessagePadding.PaddingTop = UDim.new(0, 15)
+	MessagePadding.Parent = MessageBox
+
 	local MessageCorner = Instance.new("UICorner")
-	MessageCorner.CornerRadius = UDim.new(0, 8)
+	MessageCorner.CornerRadius = UDim.new(0, 12)
 	MessageCorner.Parent = MessageBox
 
 	local SendButton = Instance.new("TextButton")
-	SendButton.Size = UDim2.new(1, 0, 0, 50)
-	SendButton.Position = UDim2.new(0, 0, 0, 250)
-	SendButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	SendButton.Text = "Enviar"
+	SendButton.Size = UDim2.new(1, 0, 0, 55)
+	SendButton.Position = UDim2.new(0, 0, 0, 350)
+	SendButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+	SendButton.Text = "Enviar Solicitud"
 	SendButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	SendButton.Font = Enum.Font.GothamBold
-	SendButton.TextSize = 16
+	SendButton.TextSize = 18
 	SendButton.Parent = VerifyPanel
 
 	local SendCorner = Instance.new("UICorner")
-	SendCorner.CornerRadius = UDim.new(0, 8)
+	SendCorner.CornerRadius = UDim.new(0, 12)
 	SendCorner.Parent = SendButton
 
 	-- Panel de Admin
 	local AdminPanel = Instance.new("Frame")
 	AdminPanel.Name = "AdminPanel"
-	AdminPanel.Size = UDim2.new(1, 0, 1, 0)
-	AdminPanel.Position = UDim2.new(0, 0, 0, 0)
+	AdminPanel.Size = UDim2.new(1, -40, 1, 0)
+	AdminPanel.Position = UDim2.new(0, 20, 0, 0)
 	AdminPanel.BackgroundTransparency = 1
 	AdminPanel.Visible = false
 	AdminPanel.Parent = ContentArea
 
 	local AdminTitle = Instance.new("TextLabel")
-	AdminTitle.Size = UDim2.new(1, 0, 0, 40)
+	AdminTitle.Size = UDim2.new(1, 0, 0, 50)
 	AdminTitle.Position = UDim2.new(0, 0, 0, 0)
 	AdminTitle.BackgroundTransparency = 1
-	AdminTitle.Text = "Panel de Administración"
-	AdminTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	AdminTitle.Text = "⚙️ Panel de Administración"
+	AdminTitle.TextColor3 = Color3.fromRGB(28, 184, 231)
 	AdminTitle.Font = Enum.Font.GothamBold
-	AdminTitle.TextSize = 22
+	AdminTitle.TextSize = 26
 	AdminTitle.TextXAlignment = Enum.TextXAlignment.Left
 	AdminTitle.Parent = AdminPanel
 
-	-- Formulario agregar música (sin márgenes)
+	-- Formulario agregar música
 	local FormFrame = Instance.new("Frame")
-	FormFrame.Size = UDim2.new(1, 0, 0, 300)
-	FormFrame.Position = UDim2.new(0, 0, 0, 40)
-	FormFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	FormFrame.Size = UDim2.new(1, 0, 0, 380)
+	FormFrame.Position = UDim2.new(0, 0, 0, 60)
+	FormFrame.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
 	FormFrame.BorderSizePixel = 0
 	FormFrame.Parent = AdminPanel
 
 	local FormCorner = Instance.new("UICorner")
-	FormCorner.CornerRadius = UDim.new(0, 8)
+	FormCorner.CornerRadius = UDim.new(0, 15)
 	FormCorner.Parent = FormFrame
 
-	-- Helper function para crear inputs (ajustados)
+	local FormPadding = Instance.new("UIPadding")
+	FormPadding.PaddingLeft = UDim.new(0, 20)
+	FormPadding.PaddingRight = UDim.new(0, 20)
+	FormPadding.PaddingTop = UDim.new(0, 20)
+	FormPadding.PaddingBottom = UDim.new(0, 20)
+	FormPadding.Parent = FormFrame
+
+	-- Helper function para crear inputs
 	local function CreateInput(name, placeholder, position)
 		local InputFrame = Instance.new("Frame")
-		InputFrame.Size = UDim2.new(0.5, 0, 0, 40)
+		InputFrame.Size = UDim2.new(0.48, 0, 0, 45)
 		InputFrame.Position = position
-		InputFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+		InputFrame.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
 		InputFrame.BorderSizePixel = 0
 		InputFrame.Parent = FormFrame
 		
 		local InputCorner = Instance.new("UICorner")
-		InputCorner.CornerRadius = UDim.new(0, 6)
+		InputCorner.CornerRadius = UDim.new(0, 8)
 		InputCorner.Parent = InputFrame
 		
 		local TextBox = Instance.new("TextBox")
 		TextBox.Name = name
-		TextBox.Size = UDim2.new(1, -10, 1, 0)
-		TextBox.Position = UDim2.new(0, 5, 0, 0)
+		TextBox.Size = UDim2.new(1, -20, 1, 0)
+		TextBox.Position = UDim2.new(0, 10, 0, 0)
 		TextBox.BackgroundTransparency = 1
 		TextBox.PlaceholderText = placeholder
-		TextBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+		TextBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
 		TextBox.Text = ""
 		TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 		TextBox.Font = Enum.Font.Gotham
-		TextBox.TextSize = 14
+		TextBox.TextSize = 15
 		TextBox.TextXAlignment = Enum.TextXAlignment.Left
 		TextBox.ClearTextOnFocus = false
 		TextBox.Parent = InputFrame
@@ -280,184 +317,318 @@ local function CreateMainGUI()
 	end
 
 	local TitleInput = CreateInput("TitleInput", "Título de la canción", UDim2.new(0, 0, 0, 0))
-	local ArtistInput = CreateInput("ArtistInput", "Artista", UDim2.new(0.5, 0, 0, 0))
-	local SoundIdInput = CreateInput("SoundIdInput", "ID de Sonido (números)", UDim2.new(0, 0, 0, 50))
-	local DurationInput = CreateInput("DurationInput", "Duración (ej: 3:45)", UDim2.new(0.5, 0, 0, 50))
-	local AlbumInput = CreateInput("AlbumInput", "Álbum (opcional)", UDim2.new(0, 0, 0, 100))
-	local GenreInput = CreateInput("GenreInput", "Género (opcional)", UDim2.new(0.5, 0, 0, 100))
+	local ArtistInput = CreateInput("ArtistInput", "Artista", UDim2.new(0.52, 0, 0, 0))
+	local SoundIdInput = CreateInput("SoundIdInput", "ID de Sonido", UDim2.new(0, 0, 0, 60))
+	local DurationInput = CreateInput("DurationInput", "Duración (ej: 3:45)", UDim2.new(0.52, 0, 0, 60))
+	local AlbumInput = CreateInput("AlbumInput", "Álbum", UDim2.new(0, 0, 0, 120))
+	local GenreInput = CreateInput("GenreInput", "Género", UDim2.new(0.52, 0, 0, 120))
 
-	-- Botón agregar (full width)
+	-- Botón agregar
 	local AddButton = Instance.new("TextButton")
-	AddButton.Size = UDim2.new(1, 0, 0, 50)
-	AddButton.Position = UDim2.new(0, 0, 0, 150)
-	AddButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	AddButton.Size = UDim2.new(1, 0, 0, 55)
+	AddButton.Position = UDim2.new(0, 0, 0, 185)
+	AddButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
 	AddButton.Text = "➕ Agregar Música"
 	AddButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	AddButton.Font = Enum.Font.GothamBold
-	AddButton.TextSize = 16
+	AddButton.TextSize = 18
 	AddButton.BorderSizePixel = 0
 	AddButton.Parent = FormFrame
 
 	local AddCorner = Instance.new("UICorner")
-	AddCorner.CornerRadius = UDim.new(0, 8)
+	AddCorner.CornerRadius = UDim.new(0, 12)
 	AddCorner.Parent = AddButton
 
 	-- Sección de solicitudes
 	local RequestsTitle = Instance.new("TextLabel")
-	RequestsTitle.Size = UDim2.new(1, 0, 0, 40)
-	RequestsTitle.Position = UDim2.new(0, 0, 0, 340)
+	RequestsTitle.Size = UDim2.new(1, 0, 0, 50)
+	RequestsTitle.Position = UDim2.new(0, 0, 0, 460)
 	RequestsTitle.BackgroundTransparency = 1
-	RequestsTitle.Text = "Solicitudes de Verificación"
-	RequestsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	RequestsTitle.Text = "📋 Solicitudes de Verificación"
+	RequestsTitle.TextColor3 = Color3.fromRGB(28, 184, 231)
 	RequestsTitle.Font = Enum.Font.GothamBold
-	RequestsTitle.TextSize = 22
+	RequestsTitle.TextSize = 24
 	RequestsTitle.TextXAlignment = Enum.TextXAlignment.Left
 	RequestsTitle.Parent = AdminPanel
 
 	local RequestsList = Instance.new("ScrollingFrame")
 	RequestsList.Name = "RequestsList"
-	RequestsList.Size = UDim2.new(1, 0, 1, -380)
-	RequestsList.Position = UDim2.new(0, 0, 0, 380)
+	RequestsList.Size = UDim2.new(1, 0, 1, -520)
+	RequestsList.Position = UDim2.new(0, 0, 0, 520)
 	RequestsList.BackgroundTransparency = 1
-	RequestsList.ScrollBarThickness = 6
-	RequestsList.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+	RequestsList.ScrollBarThickness = 8
+	RequestsList.ScrollBarImageColor3 = Color3.fromRGB(28, 184, 231)
 	RequestsList.CanvasSize = UDim2.new(0, 0, 0, 0)
 	RequestsList.Parent = AdminPanel
 
 	local RequestsLayout = Instance.new("UIListLayout")
 	RequestsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	RequestsLayout.Padding = UDim.new(0, 5)
+	RequestsLayout.Padding = UDim.new(0, 12)
 	RequestsLayout.Parent = RequestsList
 
 	RequestsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		RequestsList.CanvasSize = UDim2.new(0, 0, 0, RequestsLayout.AbsoluteContentSize.Y + 10)
+		RequestsList.CanvasSize = UDim2.new(0, 0, 0, RequestsLayout.AbsoluteContentSize.Y + 20)
 	end)
 
-	-- Barra de navegación inferior (estilo TikTok, full width)
+	-- REPRODUCTOR EN PANTALLA COMPLETA
+	local FullscreenPlayer = Instance.new("Frame")
+	FullscreenPlayer.Name = "FullscreenPlayer"
+	FullscreenPlayer.Size = UDim2.new(1, 0, 1, 0)
+	FullscreenPlayer.Position = UDim2.new(0, 0, 0, 0)
+	FullscreenPlayer.BackgroundColor3 = Color3.fromRGB(11, 14, 17)
+	FullscreenPlayer.Visible = false
+	FullscreenPlayer.ZIndex = 10
+	FullscreenPlayer.Parent = MainFrame
+
+	local FSGradient = Instance.new("UIGradient")
+	FSGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 28, 34)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(28, 184, 231)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(11, 14, 17))
+	}
+	FSGradient.Rotation = 135
+	FSGradient.Parent = FullscreenPlayer
+
+	-- Botón minimizar
+	local MinimizeButton = Instance.new("TextButton")
+	MinimizeButton.Size = UDim2.new(0, 60, 0, 60)
+	MinimizeButton.Position = UDim2.new(0, 20, 0, 20)
+	MinimizeButton.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	MinimizeButton.Text = "⌄"
+	MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	MinimizeButton.Font = Enum.Font.GothamBold
+	MinimizeButton.TextSize = 30
+	MinimizeButton.ZIndex = 11
+	MinimizeButton.Parent = FullscreenPlayer
+
+	local MinCorner = Instance.new("UICorner")
+	MinCorner.CornerRadius = UDim.new(1, 0)
+	MinCorner.Parent = MinimizeButton
+
+	-- Portada grande (simulada con emoji)
+	local AlbumCover = Instance.new("TextLabel")
+	AlbumCover.Size = UDim2.new(0, 350, 0, 350)
+	AlbumCover.Position = UDim2.new(0.5, -175, 0.3, -175)
+	AlbumCover.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	AlbumCover.Text = "🎵"
+	AlbumCover.TextColor3 = Color3.fromRGB(28, 184, 231)
+	AlbumCover.Font = Enum.Font.GothamBold
+	AlbumCover.TextSize = 120
+	AlbumCover.ZIndex = 11
+	AlbumCover.Parent = FullscreenPlayer
+
+	local CoverCorner = Instance.new("UICorner")
+	CoverCorner.CornerRadius = UDim.new(0, 20)
+	CoverCorner.Parent = AlbumCover
+
+	-- Información de la canción en fullscreen
+	local FSSongTitle = Instance.new("TextLabel")
+	FSSongTitle.Size = UDim2.new(1, -100, 0, 50)
+	FSSongTitle.Position = UDim2.new(0, 50, 0.65, 0)
+	FSSongTitle.BackgroundTransparency = 1
+	FSSongTitle.Text = "Nombre de la Canción"
+	FSSongTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	FSSongTitle.Font = Enum.Font.GothamBold
+	FSSongTitle.TextSize = 32
+	FSSongTitle.ZIndex = 11
+	FSSongTitle.Parent = FullscreenPlayer
+
+	local FSArtistName = Instance.new("TextLabel")
+	FSArtistName.Size = UDim2.new(1, -100, 0, 35)
+	FSArtistName.Position = UDim2.new(0, 50, 0.7, 0)
+	FSArtistName.BackgroundTransparency = 1
+	FSArtistName.Text = "Artista"
+	FSArtistName.TextColor3 = Color3.fromRGB(180, 180, 180)
+	FSArtistName.Font = Enum.Font.Gotham
+	FSArtistName.TextSize = 22
+	FSArtistName.ZIndex = 11
+	FSArtistName.Parent = FullscreenPlayer
+
+	-- Controles grandes
+	local ControlsFrame = Instance.new("Frame")
+	ControlsFrame.Size = UDim2.new(0, 400, 0, 100)
+	ControlsFrame.Position = UDim2.new(0.5, -200, 0.85, -50)
+	ControlsFrame.BackgroundTransparency = 1
+	ControlsFrame.ZIndex = 11
+	ControlsFrame.Parent = FullscreenPlayer
+
+	local FSPlayPauseButton = Instance.new("TextButton")
+	FSPlayPauseButton.Name = "FSPlayPauseButton"
+	FSPlayPauseButton.Size = UDim2.new(0, 80, 0, 80)
+	FSPlayPauseButton.Position = UDim2.new(0.5, -40, 0, 10)
+	FSPlayPauseButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+	FSPlayPauseButton.Text = "▶"
+	FSPlayPauseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	FSPlayPauseButton.Font = Enum.Font.GothamBold
+	FSPlayPauseButton.TextSize = 35
+	FSPlayPauseButton.ZIndex = 11
+	FSPlayPauseButton.Parent = ControlsFrame
+
+	local FSPlayCorner = Instance.new("UICorner")
+	FSPlayCorner.CornerRadius = UDim.new(1, 0)
+	FSPlayCorner.Parent = FSPlayPauseButton
+
+	-- Barra de navegación inferior
 	local NavBar = Instance.new("Frame")
 	NavBar.Name = "NavBar"
-	NavBar.Size = UDim2.new(1, 0, 0, 60)
-	NavBar.Position = UDim2.new(0, 0, 1, -60)
-	NavBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	NavBar.Size = UDim2.new(1, 0, 0, 70)
+	NavBar.Position = UDim2.new(0, 0, 1, -70)
+	NavBar.BackgroundColor3 = Color3.fromRGB(17, 21, 26)
 	NavBar.BorderSizePixel = 0
 	NavBar.Parent = MainFrame
 
 	local numTabs = isAdmin and 4 or 3
 	local tabWidth = 1 / numTabs
 
-	local LibraryButton = Instance.new("TextButton")
-	LibraryButton.Name = "LibraryButton"
-	LibraryButton.Size = UDim2.new(tabWidth, 0, 1, 0)
-	LibraryButton.Position = UDim2.new(0, 0, 0, 0)
-	LibraryButton.BackgroundTransparency = 1
-	LibraryButton.Text = "🎵 Músicas"
-	LibraryButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	LibraryButton.Font = Enum.Font.GothamBold
-	LibraryButton.TextSize = 14
-	LibraryButton.Parent = NavBar
-
-	local SearchButton = Instance.new("TextButton")
-	SearchButton.Name = "SearchButton"
-	SearchButton.Size = UDim2.new(tabWidth, 0, 1, 0)
-	SearchButton.Position = UDim2.new(tabWidth, 0, 0, 0)
-	SearchButton.BackgroundTransparency = 1
-	SearchButton.Text = "🔍 Buscar"
-	SearchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	SearchButton.Font = Enum.Font.GothamBold
-	SearchButton.TextSize = 14
-	SearchButton.Parent = NavBar
-
-	local VerifyButton = Instance.new("TextButton")
-	VerifyButton.Name = "VerifyButton"
-	VerifyButton.Size = UDim2.new(tabWidth, 0, 1, 0)
-	VerifyButton.Position = UDim2.new(tabWidth * 2, 0, 0, 0)
-	VerifyButton.BackgroundTransparency = 1
-	VerifyButton.Text = "✅ Verificación"
-	VerifyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	LibraryButton.Font = Enum.Font.GothamBold
-	VerifyButton.TextSize = 14
-	VerifyButton.Parent = NavBar
-
-	local AdminButton
-	if isAdmin then
-		AdminButton = Instance.new("TextButton")
-		AdminButton.Name = "AdminButton"
-		AdminButton.Size = UDim2.new(tabWidth, 0, 1, 0)
-		AdminButton.Position = UDim2.new(tabWidth * 3, 0, 0, 0)
-		AdminButton.BackgroundTransparency = 1
-		AdminButton.Text = "⚙️ Admin"
-		AdminButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		AdminButton.Font = Enum.Font.GothamBold
-		AdminButton.TextSize = 14
-		AdminButton.Parent = NavBar
+	local function CreateNavButton(text, position)
+		local Button = Instance.new("TextButton")
+		Button.Size = UDim2.new(tabWidth, -10, 0, 60)
+		Button.Position = position
+		Button.BackgroundTransparency = 1
+		Button.Text = text
+		Button.TextColor3 = Color3.fromRGB(180, 180, 180)
+		Button.Font = Enum.Font.GothamBold
+		Button.TextSize = 14
+		Button.Parent = NavBar
+		return Button
 	end
 
-	-- Player de música (parte inferior, arriba de nav, full width)
+	local LibraryButton = CreateNavButton("🎵 Músicas", UDim2.new(0, 5, 0, 5))
+	local SearchButton = CreateNavButton("🔍 Buscar", UDim2.new(tabWidth, 0, 0, 5))
+	local VerifyButton = CreateNavButton("✅ Verificación", UDim2.new(tabWidth * 2, 0, 0, 5))
+	
+	local AdminButton
+	if isAdmin then
+		AdminButton = CreateNavButton("⚙️ Admin", UDim2.new(tabWidth * 3, 0, 0, 5))
+	end
+
+	-- Player de música (barra inferior compacta)
 	local PlayerBar = Instance.new("Frame")
 	PlayerBar.Name = "PlayerBar"
-	PlayerBar.Size = UDim2.new(1, 0, 0, 60)
-	PlayerBar.Position = UDim2.new(0, 0, 1, -120)
-	PlayerBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	PlayerBar.Size = UDim2.new(1, 0, 0, 80)
+	PlayerBar.Position = UDim2.new(0, 0, 1, -150)
+	PlayerBar.BackgroundColor3 = Color3.fromRGB(25, 29, 35)
 	PlayerBar.BorderSizePixel = 0
 	PlayerBar.Visible = false
 	PlayerBar.Parent = MainFrame
 
+	local PlayerGradient = Instance.new("UIGradient")
+	PlayerGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 29, 35)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 39, 47))
+	}
+	PlayerGradient.Rotation = 90
+	PlayerGradient.Parent = PlayerBar
+
 	-- Información de canción
 	local SongInfo = Instance.new("TextLabel")
 	SongInfo.Name = "SongInfo"
-	SongInfo.Size = UDim2.new(1, -100, 0, 30)
-	SongInfo.Position = UDim2.new(0, 10, 0, 5)
+	SongInfo.Size = UDim2.new(0.6, -100, 0, 30)
+	SongInfo.Position = UDim2.new(0, 15, 0, 10)
 	SongInfo.BackgroundTransparency = 1
 	SongInfo.Text = "Sin reproducción"
 	SongInfo.TextColor3 = Color3.fromRGB(255, 255, 255)
 	SongInfo.Font = Enum.Font.GothamBold
-	SongInfo.TextSize = 14
+	SongInfo.TextSize = 16
 	SongInfo.TextXAlignment = Enum.TextXAlignment.Left
+	SongInfo.TextTruncate = Enum.TextTruncate.AtEnd
 	SongInfo.Parent = PlayerBar
 
 	local ArtistInfo = Instance.new("TextLabel")
 	ArtistInfo.Name = "ArtistInfo"
-	ArtistInfo.Size = UDim2.new(1, -100, 0, 20)
-	ArtistInfo.Position = UDim2.new(0, 10, 0, 30)
+	ArtistInfo.Size = UDim2.new(0.6, -100, 0, 25)
+	ArtistInfo.Position = UDim2.new(0, 15, 0, 40)
 	ArtistInfo.BackgroundTransparency = 1
 	ArtistInfo.Text = ""
 	ArtistInfo.TextColor3 = Color3.fromRGB(180, 180, 180)
 	ArtistInfo.Font = Enum.Font.Gotham
-	ArtistInfo.TextSize = 12
+	ArtistInfo.TextSize = 14
 	ArtistInfo.TextXAlignment = Enum.TextXAlignment.Left
+	ArtistInfo.TextTruncate = Enum.TextTruncate.AtEnd
 	ArtistInfo.Parent = PlayerBar
 
 	-- Controles
 	local PlayPauseButton = Instance.new("TextButton")
 	PlayPauseButton.Name = "PlayPauseButton"
-	PlayPauseButton.Size = UDim2.new(0, 40, 0, 40)
-	PlayPauseButton.Position = UDim2.new(1, -90, 0.5, -20)
-	PlayPauseButton.BackgroundTransparency = 1
+	PlayPauseButton.Size = UDim2.new(0, 50, 0, 50)
+	PlayPauseButton.Position = UDim2.new(1, -120, 0.5, -25)
+	PlayPauseButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
 	PlayPauseButton.Text = "▶"
 	PlayPauseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	PlayPauseButton.Font = Enum.Font.GothamBold
 	PlayPauseButton.TextSize = 20
 	PlayPauseButton.Parent = PlayerBar
 
+	local PlayCorner = Instance.new("UICorner")
+	PlayCorner.CornerRadius = UDim.new(1, 0)
+	PlayCorner.Parent = PlayPauseButton
+
 	local StopButton = Instance.new("TextButton")
 	StopButton.Name = "StopButton"
-	StopButton.Size = UDim2.new(0, 40, 0, 40)
-	StopButton.Position = UDim2.new(1, -40, 0.5, -20)
-	StopButton.BackgroundTransparency = 1
+	StopButton.Size = UDim2.new(0, 50, 0, 50)
+	StopButton.Position = UDim2.new(1, -60, 0.5, -25)
+	StopButton.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
 	StopButton.Text = "■"
 	StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	StopButton.Font = Enum.Font.GothamBold
-	StopButton.TextSize = 18
+	StopButton.TextSize = 20
 	StopButton.Parent = PlayerBar
+
+	local StopCorner = Instance.new("UICorner")
+	StopCorner.CornerRadius = UDim.new(1, 0)
+	StopCorner.Parent = StopButton
+
+	-- Botón expandir
+	local ExpandButton = Instance.new("TextButton")
+	ExpandButton.Name = "ExpandButton"
+	ExpandButton.Size = UDim2.new(0, 30, 0, 30)
+	ExpandButton.Position = UDim2.new(0, 10, 0, 10)
+	ExpandButton.BackgroundTransparency = 1
+	ExpandButton.Text = "⬆"
+	ExpandButton.TextColor3 = Color3.fromRGB(28, 184, 231)
+	ExpandButton.Font = Enum.Font.GothamBold
+	ExpandButton.TextSize = 18
+	ExpandButton.Parent = PlayerBar
 
 	-- CONEXIONES DE UI
 
+	-- Función para expandir/contraer reproductor
+	local function ToggleFullscreen()
+		isFullscreen = not isFullscreen
+		FullscreenPlayer.Visible = isFullscreen
+		
+		if isFullscreen and currentMusicData then
+			FSSongTitle.Text = currentMusicData.Title
+			FSArtistName.Text = currentMusicData.Artist .. " • " .. (currentMusicData.Album or "")
+			
+			if currentSound and currentSound.Playing then
+				FSPlayPauseButton.Text = "❚❚"
+			else
+				FSPlayPauseButton.Text = "▶"
+			end
+		end
+	end
+
+	ExpandButton.MouseButton1Click:Connect(ToggleFullscreen)
+	MinimizeButton.MouseButton1Click:Connect(ToggleFullscreen)
+
 	-- Navegación
+	local function SetActiveTab(button)
+		LibraryButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+		SearchButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+		VerifyButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+		if isAdmin then
+			AdminButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+		end
+		button.TextColor3 = Color3.fromRGB(28, 184, 231)
+	end
+
 	LibraryButton.MouseButton1Click:Connect(function()
 		LibraryPanel.Visible = true
 		SearchPanel.Visible = false
 		VerifyPanel.Visible = false
 		AdminPanel.Visible = false
+		SetActiveTab(LibraryButton)
 	end)
 
 	SearchButton.MouseButton1Click:Connect(function()
@@ -465,6 +636,7 @@ local function CreateMainGUI()
 		SearchPanel.Visible = true
 		VerifyPanel.Visible = false
 		AdminPanel.Visible = false
+		SetActiveTab(SearchButton)
 	end)
 
 	VerifyButton.MouseButton1Click:Connect(function()
@@ -472,6 +644,7 @@ local function CreateMainGUI()
 		SearchPanel.Visible = false
 		VerifyPanel.Visible = true
 		AdminPanel.Visible = false
+		SetActiveTab(VerifyButton)
 	end)
 
 	if isAdmin then
@@ -480,6 +653,7 @@ local function CreateMainGUI()
 			SearchPanel.Visible = false
 			VerifyPanel.Visible = false
 			AdminPanel.Visible = true
+			SetActiveTab(AdminButton)
 		end)
 	end
 
@@ -494,28 +668,7 @@ local function CreateMainGUI()
 		if message ~= "" then
 			SendVerifyRequest:FireServer(message)
 			MessageBox.Text = ""
-			-- Notificación
-			local notification = Instance.new("TextLabel")
-			notification.Size = UDim2.new(0, 300, 0, 50)
-			notification.AnchorPoint = Vector2.new(0.5, 0)
-			notification.Position = UDim2.new(0.5, 0, 0, -50)
-			notification.BackgroundColor3 = Color3.fromRGB(46, 125, 50)
-			notification.Text = "Solicitud enviada"
-			notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-			notification.Font = Enum.Font.GothamBold
-			notification.TextSize = 14
-			notification.Parent = ScreenGui
-			
-			local notifCorner = Instance.new("UICorner")
-			notifCorner.Parent = notification
-			
-			local tweenIn = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, 20)})
-			tweenIn:Play()
-			task.wait(2)
-			local tweenOut = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, -50)})
-			tweenOut:Play()
-			tweenOut.Completed:Wait()
-			notification:Destroy()
+			ShowNotification(ScreenGui, "Solicitud enviada", Color3.fromRGB(46, 125, 50))
 		end
 	end)
 
@@ -547,14 +700,35 @@ local function CreateMainGUI()
 		end
 	end)
 
-	-- Controles de reproducción
+	-- Controles de reproducción (barra compacta)
 	PlayPauseButton.MouseButton1Click:Connect(function()
 		if currentSound then
 			if currentSound.Playing then
 				currentSound:Pause()
 				PlayPauseButton.Text = "▶"
+				if isFullscreen then
+					FSPlayPauseButton.Text = "▶"
+				end
 			else
 				currentSound:Play()
+				PlayPauseButton.Text = "❚❚"
+				if isFullscreen then
+					FSPlayPauseButton.Text = "❚❚"
+				end
+			end
+		end
+	end)
+
+	-- Controles de reproducción (fullscreen)
+	FSPlayPauseButton.MouseButton1Click:Connect(function()
+		if currentSound then
+			if currentSound.Playing then
+				currentSound:Pause()
+				FSPlayPauseButton.Text = "▶"
+				PlayPauseButton.Text = "▶"
+			else
+				currentSound:Play()
+				FSPlayPauseButton.Text = "❚❚"
 				PlayPauseButton.Text = "❚❚"
 			end
 		end
@@ -563,93 +737,176 @@ local function CreateMainGUI()
 	StopButton.MouseButton1Click:Connect(function()
 		if currentSound then
 			currentSound:Stop()
+			currentSound:Destroy()
+			currentSound = nil
 			PlayerBar.Visible = false
+			FullscreenPlayer.Visible = false
+			isFullscreen = false
 			currentPlayingId = nil
+			currentMusicData = nil
 			PlayPauseButton.Text = "▶"
+			FSPlayPauseButton.Text = "▶"
 		end
 	end)
 
-	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList
+	SetActiveTab(LibraryButton)
+
+	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList, FullscreenPlayer, FSSongTitle, FSArtistName, FSPlayPauseButton
 end
 
 -----
 
 -- GESTIÓN DE LA MÚSICA
 
--- Crear tarjeta de música (estilo TikTok: minimalista, full width)
+-- Función para mostrar notificaciones
+local function ShowNotification(gui, message, color)
+	local notification = Instance.new("TextLabel")
+	notification.Size = UDim2.new(0, 350, 0, 60)
+	notification.AnchorPoint = Vector2.new(0.5, 0)
+	notification.Position = UDim2.new(0.5, 0, 0, -60)
+	notification.BackgroundColor3 = color
+	notification.Text = message
+	notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+	notification.Font = Enum.Font.GothamBold
+	notification.TextSize = 16
+	notification.Parent = gui
+	
+	local notifCorner = Instance.new("UICorner")
+	notifCorner.CornerRadius = UDim.new(0, 12)
+	notifCorner.Parent = notification
+	
+	local tweenIn = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, 20)})
+	tweenIn:Play()
+	task.wait(2.5)
+	local tweenOut = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, -60)})
+	tweenOut:Play()
+	tweenOut.Completed:Wait()
+	notification:Destroy()
+end
+
+-- Crear tarjeta de música (estilo Amazon Music)
 local function CreateMusicCard(musicData, parent, playerBar, songInfo, artistInfo, playButton, isAdmin)
 	local Card = Instance.new("Frame")
 	Card.Name = "MusicCard_" .. musicData.Id
-	Card.Size = UDim2.new(1, 0, 0, 60)
-	Card.BackgroundTransparency = 1
+	Card.Size = UDim2.new(1, 0, 0, 75)
+	Card.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
 	Card.Parent = parent
 	Card.LayoutOrder = musicData.Id
 
+	local CardCorner = Instance.new("UICorner")
+	CardCorner.CornerRadius = UDim.new(0, 12)
+	CardCorner.Parent = Card
+
+	-- Mini portada
+	local MiniCover = Instance.new("TextLabel")
+	MiniCover.Size = UDim2.new(0, 60, 0, 60)
+	MiniCover.Position = UDim2.new(0, 8, 0.5, -30)
+	MiniCover.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+	MiniCover.Text = "🎵"
+	MiniCover.TextColor3 = Color3.fromRGB(255, 255, 255)
+	MiniCover.Font = Enum.Font.GothamBold
+	MiniCover.TextSize = 25
+	MiniCover.Parent = Card
+
+	local MiniCorner = Instance.new("UICorner")
+	MiniCorner.CornerRadius = UDim.new(0, 8)
+	MiniCorner.Parent = MiniCover
+
 	-- Título
 	local Title = Instance.new("TextLabel")
-	Title.Size = UDim2.new(1, -150, 0, 20)
-	Title.Position = UDim2.new(0, 10, 0, 5)
+	Title.Size = UDim2.new(1, -250, 0, 25)
+	Title.Position = UDim2.new(0, 80, 0, 12)
 	Title.BackgroundTransparency = 1
 	Title.Text = musicData.Title
 	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	Title.Font = Enum.Font.GothamBold
-	Title.TextSize = 16
+	Title.TextSize = 17
 	Title.TextXAlignment = Enum.TextXAlignment.Left
 	Title.TextTruncate = Enum.TextTruncate.AtEnd
 	Title.Parent = Card
 
 	-- Artista y duración
 	local Artist = Instance.new("TextLabel")
-	Artist.Size = UDim2.new(1, -150, 0, 20)
-	Artist.Position = UDim2.new(0, 10, 0, 25)
+	Artist.Size = UDim2.new(1, -250, 0, 22)
+	Artist.Position = UDim2.new(0, 80, 0, 38)
 	Artist.BackgroundTransparency = 1
-	Artist.Text = musicData.Artist .. " • " .. musicData.Duration
-	Artist.TextColor3 = Color3.fromRGB(180, 180, 180)
+	Artist.Text = musicData.Artist .. " • " .. musicData.Duration .. " • " .. (musicData.Genre or "")
+	Artist.TextColor3 = Color3.fromRGB(150, 150, 150)
 	Artist.Font = Enum.Font.Gotham
-	Artist.TextSize = 12
+	Artist.TextSize = 13
 	Artist.TextXAlignment = Enum.TextXAlignment.Left
 	Artist.Parent = Card
 
 	-- Botón play
 	local PlayBtn = Instance.new("TextButton")
-	PlayBtn.Size = UDim2.new(0, 120, 0, 40)
-	PlayBtn.Position = UDim2.new(1, -130, 0.5, -20)
-	PlayBtn.BackgroundTransparency = 1
-	PlayBtn.Text = "▶ Reproducir"
+	PlayBtn.Size = UDim2.new(0, 55, 0, 55)
+	PlayBtn.Position = UDim2.new(1, -145, 0.5, -27.5)
+	PlayBtn.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+	PlayBtn.Text = "▶"
 	PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	PlayBtn.Font = Enum.Font.GothamBold
-	PlayBtn.TextSize = 14
+	PlayBtn.TextSize = 20
 	PlayBtn.Parent = Card
 
+	local PlayBtnCorner = Instance.new("UICorner")
+	PlayBtnCorner.CornerRadius = UDim.new(1, 0)
+	PlayBtnCorner.Parent = PlayBtn
+
 	PlayBtn.MouseButton1Click:Connect(function()
+		-- Detener sonido anterior si existe
 		if currentSound then
 			currentSound:Stop()
 			currentSound:Destroy()
 		end
 		
+		-- Crear nuevo sonido
 		currentSound = Instance.new("Sound")
-		currentSound.SoundId = "rbxassetid://" .. musicData.SoundId
+		currentSound.Name = "MusicSound"
+		currentSound.SoundId = "rbxassetid://" .. tostring(musicData.SoundId)
 		currentSound.Volume = 0.5
+		currentSound.Looped = false
 		currentSound.Parent = SoundService
-		currentSound:Play()
 		
-		currentPlayingId = musicData.Id
-		playerBar.Visible = true
-		songInfo.Text = musicData.Title
-		artistInfo.Text = musicData.Artist .. " • " .. (musicData.Album or "")
-		playButton.Text = "❚❚"
+		-- Esperar a que el sonido esté listo
+		task.wait(0.1)
+		
+		-- Reproducir
+		local success, err = pcall(function()
+			currentSound:Play()
+		end)
+		
+		if success then
+			currentPlayingId = musicData.Id
+			currentMusicData = musicData
+			playerBar.Visible = true
+			songInfo.Text = musicData.Title
+			artistInfo.Text = musicData.Artist .. " • " .. (musicData.Album or "")
+			playButton.Text = "❚❚"
+			
+			print("Reproduciendo:", musicData.Title, "- ID:", musicData.SoundId)
+		else
+			warn("Error al reproducir música:", err)
+			if currentSound then
+				currentSound:Destroy()
+				currentSound = nil
+			end
+		end
 	end)
 
 	if isAdmin then
 		local DeleteBtn = Instance.new("TextButton")
-		DeleteBtn.Size = UDim2.new(0, 40, 0, 40)
-		DeleteBtn.Position = UDim2.new(1, -40, 0.5, -20)
-		DeleteBtn.BackgroundTransparency = 1
+		DeleteBtn.Size = UDim2.new(0, 50, 0, 50)
+		DeleteBtn.Position = UDim2.new(1, -75, 0.5, -25)
+		DeleteBtn.BackgroundColor3 = Color3.fromRGB(211, 47, 47)
 		DeleteBtn.Text = "🗑"
 		DeleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		DeleteBtn.Font = Enum.Font.GothamBold
-		DeleteBtn.TextSize = 16
+		DeleteBtn.TextSize = 18
 		DeleteBtn.Parent = Card
+		
+		local DeleteCorner = Instance.new("UICorner")
+		DeleteCorner.CornerRadius = UDim.new(1, 0)
+		DeleteCorner.Parent = DeleteBtn
 		
 		DeleteBtn.MouseButton1Click:Connect(function()
 			DeleteMusicEvent:FireServer(musicData.Id)
@@ -682,52 +939,59 @@ local function UpdateSearchResults(searchResults, query)
 	
 	query = string.lower(query)
 	for _, music in ipairs(musicLibrary) do
-		if string.find(string.lower(music.Title), query) or string.find(string.lower(music.Artist), query) then
+		if string.find(string.lower(music.Title), query) or string.find(string.lower(music.Artist), query) or string.find(string.lower(music.Genre or ""), query) then
 			CreateMusicCard(music, searchResults, playerBar, songInfo, artistInfo, playButton, isAdmin)
 		end
 	end
 end
 
--- Crear tarjeta de solicitud (ajustada)
+-- Crear tarjeta de solicitud
 local function CreateRequestCard(req, parent)
 	local Card = Instance.new("Frame")
-	Card.Size = UDim2.new(1, 0, 0, 80)
-	Card.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	Card.Size = UDim2.new(1, 0, 0, 100)
+	Card.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
 	Card.Parent = parent
 
 	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, 8)
+	Corner.CornerRadius = UDim.new(0, 12)
 	Corner.Parent = Card
 
+	local Padding = Instance.new("UIPadding")
+	Padding.PaddingLeft = UDim.new(0, 15)
+	Padding.PaddingRight = UDim.new(0, 15)
+	Padding.PaddingTop = UDim.new(0, 10)
+	Padding.PaddingBottom = UDim.new(0, 10)
+	Padding.Parent = Card
+
 	local UserLabel = Instance.new("TextLabel")
-	UserLabel.Size = UDim2.new(1, -10, 0, 20)
-	UserLabel.Position = UDim2.new(0, 5, 0, 5)
+	UserLabel.Size = UDim2.new(1, 0, 0, 22)
+	UserLabel.Position = UDim2.new(0, 0, 0, 0)
 	UserLabel.BackgroundTransparency = 1
-	UserLabel.Text = "Usuario: " .. req.User
-	UserLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	UserLabel.Text = "👤 " .. req.User
+	UserLabel.TextColor3 = Color3.fromRGB(28, 184, 231)
 	UserLabel.Font = Enum.Font.GothamBold
-	UserLabel.TextSize = 14
+	UserLabel.TextSize = 16
 	UserLabel.TextXAlignment = Enum.TextXAlignment.Left
 	UserLabel.Parent = Card
 
 	local MessageLabel = Instance.new("TextLabel")
-	MessageLabel.Size = UDim2.new(1, -10, 0, 40)
-	MessageLabel.Position = UDim2.new(0, 5, 0, 25)
+	MessageLabel.Size = UDim2.new(1, 0, 0, 45)
+	MessageLabel.Position = UDim2.new(0, 0, 0, 25)
 	MessageLabel.BackgroundTransparency = 1
 	MessageLabel.Text = req.Message
-	MessageLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+	MessageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 	MessageLabel.Font = Enum.Font.Gotham
-	MessageLabel.TextSize = 12
+	MessageLabel.TextSize = 14
 	MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
 	MessageLabel.TextWrapped = true
 	MessageLabel.Parent = Card
 
 	local TimeLabel = Instance.new("TextLabel")
-	TimeLabel.Size = UDim2.new(1, -10, 0, 20)
-	TimeLabel.Position = UDim2.new(0, 5, 0, 65)
+	TimeLabel.Size = UDim2.new(1, 0, 0, 18)
+	TimeLabel.Position = UDim2.new(0, 0, 1, -18)
 	TimeLabel.BackgroundTransparency = 1
-	TimeLabel.Text = "Fecha: " .. os.date("%Y-%m-%d %H:%M", req.Timestamp)
-	TimeLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+	TimeLabel.Text = "📅 " .. os.date("%Y-%m-%d %H:%M", req.Timestamp)
+	TimeLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
 	TimeLabel.Font = Enum.Font.Gotham
 	TimeLabel.TextSize = 12
 	TimeLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -757,7 +1021,7 @@ task.wait(1)
 isAdmin = CheckAdminEvent:InvokeServer()
 
 -- Crear GUI
-local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList = CreateMainGUI()
+local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton = CreateMainGUI()
 
 -- Cargar biblioteca
 musicLibrary = RequestMusicList:InvokeServer()
@@ -777,28 +1041,7 @@ MusicUpdateEvent.OnClientEvent:Connect(function(action, data)
 		UpdateSearchResults(searchPanel:FindFirstChild("SearchResults"), searchPanel:FindFirstChild("SearchInput").Text)
 		
 		if isAdmin then
-			-- Notificación
-			local notification = Instance.new("TextLabel")
-			notification.Size = UDim2.new(0, 300, 0, 50)
-			notification.AnchorPoint = Vector2.new(0.5, 0)
-			notification.Position = UDim2.new(0.5, 0, 0, -50)
-			notification.BackgroundColor3 = Color3.fromRGB(46, 125, 50)
-			notification.Text = "✓ Música agregada exitosamente"
-			notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-			notification.Font = Enum.Font.GothamBold
-			notification.TextSize = 14
-			notification.Parent = gui
-			
-			local notifCorner = Instance.new("UICorner")
-			notifCorner.Parent = notification
-			
-			local tweenIn = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, 20)})
-			tweenIn:Play()
-			task.wait(2)
-			local tweenOut = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, -50)})
-			tweenOut:Play()
-			tweenOut.Completed:Wait()
-			notification:Destroy()
+			ShowNotification(gui, "✓ Música agregada: " .. data.Title, Color3.fromRGB(46, 125, 50))
 		end
 	elseif action == "DELETE" then
 		for i, music in ipairs(musicLibrary) do
@@ -812,8 +1055,12 @@ MusicUpdateEvent.OnClientEvent:Connect(function(action, data)
 		
 		if currentPlayingId == data and currentSound then
 			currentSound:Stop()
+			currentSound:Destroy()
+			currentSound = nil
 			playerBar.Visible = false
+			fullscreenPlayer.Visible = false
 			currentPlayingId = nil
+			currentMusicData = nil
 		end
 	end
 end)
@@ -824,29 +1071,7 @@ if isAdmin then
 		if action == "NEW_REQUEST" then
 			table.insert(verificationRequests, data)
 			UpdateRequests(requestsList)
-			
-			-- Notificación
-			local notification = Instance.new("TextLabel")
-			notification.Size = UDim2.new(0, 300, 0, 50)
-			notification.AnchorPoint = Vector2.new(0.5, 0)
-			notification.Position = UDim2.new(0.5, 0, 0, -50)
-			notification.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-			notification.Text = "Nueva solicitud de " .. data.User
-			notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-			notification.Font = Enum.Font.GothamBold
-			notification.TextSize = 14
-			notification.Parent = gui
-			
-			local notifCorner = Instance.new("UICorner")
-			notifCorner.Parent = notification
-			
-			local tweenIn = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, 20)})
-			tweenIn:Play()
-			task.wait(2)
-			local tweenOut = TweenService:Create(notification, TweenInfo.new(0.5), {Position = UDim2.new(0.5, 0, 0, -50)})
-			tweenOut:Play()
-			tweenOut.Completed:Wait()
-			notification:Destroy()
+			ShowNotification(gui, "📬 Nueva solicitud de " .. data.User, Color3.fromRGB(28, 184, 231))
 		end
 	end)
 end
@@ -857,13 +1082,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		local mainFrame = gui:FindFirstChild("MainFrame")
 		if mainFrame then
 			mainFrame.Visible = not mainFrame.Visible
-			if not mainFrame.Visible and currentSound then
+			if not mainFrame.Visible and currentSound and currentSound.Playing then
 				currentSound:Pause()
 			end
 		end
 	end
 end)
 
-print("Amazon Music Cliente - Sistema iniciado")
-print("Presiona ‘M’ para abrir/cerrar la interfaz")
-print("Es admin:", isAdmin)
+print("════════════════════════════════════")
+print("🎵 Amazon Music Sistema Iniciado")
+print("Presiona 'M' para abrir la interfaz")
+print("Estado Admin:", isAdmin and "✓ Sí" or "✗ No")
+print("Canciones cargadas:", #musicLibrary)
+print("════════════════════════════════════")
