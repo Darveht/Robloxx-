@@ -7,13 +7,13 @@ local Players = game:GetService("Players")
 -- DataStore para guardar las canciones
 local MusicDataStore = DataStoreService:GetDataStore("AmazonMusicStore")
 
--- DataStore para solicitudes de verificación
+-- DataStore para solicitudes de verificaciÃ³n
 local VerifyDataStore = DataStoreService:GetDataStore("VerifyRequests")
 
 -- Lista de administradores
 local Admins = {
 	["Vegetl_t"] = true,
-	-- Agrega más admins aquí: ["NombreUsuario"] = true,
+	-- Agrega mÃ¡s admins aquÃ­: ["NombreUsuario"] = true,
 }
 
 -- RemoteEvents y RemoteFunctions (Se crean y se adjuntan a ReplicatedStorage)
@@ -61,36 +61,14 @@ local ChatUpdateEvent = Instance.new("RemoteEvent")
 ChatUpdateEvent.Name = "ChatUpdateEvent"
 ChatUpdateEvent.Parent = RemoteEventsFolder
 
-local SendReportEvent = Instance.new("RemoteEvent")
-SendReportEvent.Name = "SendReportEvent"
-SendReportEvent.Parent = RemoteEventsFolder
-
-local RequestReportsEvent = Instance.new("RemoteFunction")
-RequestReportsEvent.Name = "RequestReportsEvent"
-RequestReportsEvent.Parent = RemoteEventsFolder
-
-local ReportUpdateEvent = Instance.new("RemoteEvent")
-ReportUpdateEvent.Name = "ReportUpdateEvent"
-ReportUpdateEvent.Parent = RemoteEventsFolder
-
-local UpdateMusicStatusEvent = Instance.new("RemoteEvent")
-UpdateMusicStatusEvent.Name = "UpdateMusicStatusEvent"
-UpdateMusicStatusEvent.Parent = RemoteEventsFolder
-
 -- Tabla local de canciones (cache)
 local MusicLibrary = {}
 
--- Tabla de solicitudes de verificación
+-- Tabla de solicitudes de verificaciÃ³n
 local VerificationRequests = {}
 
 -- Tabla de mensajes de chat de comunidad
 local ChatMessages = {}
-
--- Tabla de reportes
-local Reports = {}
-
--- DataStore para reportes
-local ReportsDataStore = DataStoreService:GetDataStore("MusicReports")
 
 -----
 
@@ -104,10 +82,10 @@ local function LoadMusicLibrary()
 	
 	if success and data then
 		MusicLibrary = data
-		print("Biblioteca de música cargada:", #MusicLibrary, "canciones")
+		print("Biblioteca de mÃºsica cargada:", #MusicLibrary, "canciones")
 	else
 		MusicLibrary = {}
-		print("Iniciando nueva biblioteca de música o error al cargar.")
+		print("Iniciando nueva biblioteca de mÃºsica o error al cargar.")
 	end
 end
 
@@ -124,7 +102,7 @@ local function SaveMusicLibrary()
 	end
 end
 
--- Cargar solicitudes de verificación
+-- Cargar solicitudes de verificaciÃ³n
 local function LoadRequests()
 	local success, data = pcall(function()
 		return VerifyDataStore:GetAsync("Requests")
@@ -139,7 +117,7 @@ local function LoadRequests()
 	end
 end
 
--- Guardar solicitudes de verificación
+-- Guardar solicitudes de verificaciÃ³n
 local function SaveRequests()
 	local success, err = pcall(function()
 		VerifyDataStore:SetAsync("Requests", VerificationRequests)
@@ -152,34 +130,6 @@ local function SaveRequests()
 	end
 end
 
--- Cargar reportes
-local function LoadReports()
-	local success, data = pcall(function()
-		return ReportsDataStore:GetAsync("ReportsList")
-	end)
-	
-	if success and data then
-		Reports = data
-		print("Reportes cargados:", #Reports)
-	else
-		Reports = {}
-		print("Iniciando nuevos reportes.")
-	end
-end
-
--- Guardar reportes
-local function SaveReports()
-	local success, err = pcall(function()
-		ReportsDataStore:SetAsync("ReportsList", Reports)
-	end)
-	
-	if success then
-		print("Reportes guardados exitosamente")
-	else
-		warn("Error al guardar reportes:", err)
-	end
-end
-
 -- Verificar si un jugador es admin
 local function IsAdmin(player)
 	return Admins[player.Name] or false
@@ -189,7 +139,7 @@ end
 
 -- CONEXIONES DE REMOTES
 
--- Función para obtener la lista de música
+-- FunciÃ³n para obtener la lista de mÃºsica
 RequestMusicList.OnServerInvoke = function(player)
 	return MusicLibrary
 end
@@ -207,20 +157,20 @@ RequestVerifyList.OnServerInvoke = function(player)
 	return {}
 end
 
--- Agregar música (solo admins)
+-- Agregar mÃºsica (solo admins)
 AddMusicEvent.OnServerEvent:Connect(function(player, musicData)
 	if not IsAdmin(player) then
-		warn(player.Name .. " intentó agregar música sin permisos")
+		warn(player.Name .. " intentÃ³ agregar mÃºsica sin permisos")
 		return
 	end
 	
 	-- Validar datos
 	if not musicData.Title or not musicData.Artist or not musicData.SoundId then
-		warn("Datos de música inválidos")
+		warn("Datos de mÃºsica invÃ¡lidos")
 		return
 	end
 	
-	-- Crear nuevo registro de música
+	-- Crear nuevo registro de mÃºsica
 	local newMusic = {
 		Id = #MusicLibrary + 1,
 		Title = musicData.Title,
@@ -230,25 +180,22 @@ AddMusicEvent.OnServerEvent:Connect(function(player, musicData)
 		Album = musicData.Album or "Single",
 		Genre = musicData.Genre or "Pop",
 		AddedBy = player.Name,
-		Timestamp = os.time(),
-		Status = "active",
-		HasCopyright = musicData.HasCopyright or false,
-		ReleaseDate = musicData.ReleaseDate or nil
+		Timestamp = os.time()
 	}
 	
 	table.insert(MusicLibrary, newMusic)
 	SaveMusicLibrary()
 	
-	print(player.Name .. " agregó nueva música:", newMusic.Title)
+	print(player.Name .. " agregÃ³ nueva mÃºsica:", newMusic.Title)
 	
 	-- Notificar a todos los clientes
 	MusicUpdateEvent:FireAllClients("ADD", newMusic)
 end)
 
--- Eliminar música (solo admins)
+-- Eliminar mÃºsica (solo admins)
 DeleteMusicEvent.OnServerEvent:Connect(function(player, musicId)
 	if not IsAdmin(player) then
-		warn(player.Name .. " intentó eliminar música sin permisos")
+		warn(player.Name .. " intentÃ³ eliminar mÃºsica sin permisos")
 		return
 	end
 	
@@ -256,7 +203,7 @@ DeleteMusicEvent.OnServerEvent:Connect(function(player, musicId)
 		if music.Id == musicId then
 			table.remove(MusicLibrary, i)
 			SaveMusicLibrary()
-			print(player.Name .. " eliminó música ID:", musicId)
+			print(player.Name .. " eliminÃ³ mÃºsica ID:", musicId)
 			
 			-- Notificar a todos los clientes
 			MusicUpdateEvent:FireAllClients("DELETE", musicId)
@@ -286,81 +233,7 @@ SendChatEvent.OnServerEvent:Connect(function(player, message)
 	end
 end)
 
--- Enviar reporte
-SendReportEvent.OnServerEvent:Connect(function(player, reportData)
-	if not reportData or not reportData.MusicId then return end
-	
-	local report = {
-		Id = #Reports + 1,
-		MusicId = reportData.MusicId,
-		MusicTitle = reportData.MusicTitle,
-		MusicArtist = reportData.MusicArtist,
-		Reason = reportData.Reason,
-		Description = reportData.Description or "",
-		ReporterName = player.Name,
-		ReporterId = player.UserId,
-		Timestamp = os.time(),
-		Status = "pending"
-	}
-	
-	table.insert(Reports, report)
-	SaveReports()
-	
-	print(player.Name .. " reportó música:", reportData.MusicTitle)
-	
-	-- Notificar a admins
-	for _, p in ipairs(Players:GetPlayers()) do
-		if IsAdmin(p) then
-			ReportUpdateEvent:FireClient(p, "NEW_REPORT", report)
-		end
-	end
-end)
-
--- Obtener reportes (solo admins)
-RequestReportsEvent.OnServerInvoke = function(player)
-	if IsAdmin(player) then
-		return Reports
-	end
-	return {}
-end
-
--- Actualizar estado de música
-UpdateMusicStatusEvent.OnServerEvent:Connect(function(player, action, musicId)
-	if not IsAdmin(player) then return end
-	
-	for i, music in ipairs(MusicLibrary) do
-		if music.Id == musicId then
-			if action == "delete" then
-				table.remove(MusicLibrary, i)
-				SaveMusicLibrary()
-				MusicUpdateEvent:FireAllClients("DELETE", musicId)
-			elseif action == "block" then
-				music.Status = "blocked"
-				SaveMusicLibrary()
-				MusicUpdateEvent:FireAllClients("UPDATE", music)
-			elseif action == "disable" then
-				music.Status = "disabled"
-				SaveMusicLibrary()
-				MusicUpdateEvent:FireAllClients("UPDATE", music)
-			elseif action == "enable" then
-				music.Status = "active"
-				SaveMusicLibrary()
-				MusicUpdateEvent:FireAllClients("UPDATE", music)
-			end
-			break
-		end
-	end
-	
-	-- Marcar reportes como resueltos
-	for _, report in ipairs(Reports) do
-		if report.MusicId == musicId and report.Status == "pending" then
-			report.Status = "resolved"
-		end
-	end
-	SaveReports()
-end)
-
--- Enviar solicitud de verificación
+-- Enviar solicitud de verificaciÃ³n
 SendVerifyRequest.OnServerEvent:Connect(function(player, message)
 	if not message or message == "" then return end
 	
@@ -375,7 +248,7 @@ SendVerifyRequest.OnServerEvent:Connect(function(player, message)
 	table.insert(VerificationRequests, req)
 	SaveRequests()
 	
-	print(player.Name .. " envió solicitud de verificación")
+	print(player.Name .. " enviÃ³ solicitud de verificaciÃ³n")
 	
 	-- Notificar a admins online
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -387,19 +260,17 @@ end)
 
 -----
 
--- INICIALIZACIÓN
+-- INICIALIZACIÃ“N
 
 -- Cargar biblioteca al iniciar
 LoadMusicLibrary()
 LoadRequests()
-LoadReports()
 
 -- Auto-guardar cada 5 minutos
 task.spawn(function()
 	while task.wait(300) do
 		SaveMusicLibrary()
 		SaveRequests()
-		SaveReports()
 	end
 end)
 
