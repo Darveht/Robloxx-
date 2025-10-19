@@ -493,13 +493,13 @@ local function CreateMainGUI()
 		return Button
 	end
 
-	local LibraryButton = CreateNavButton("🎵 Músicas", UDim2.new(0, 5, 0, 5))
-	local SearchButton = CreateNavButton("🔍 Buscar", UDim2.new(tabWidth, 0, 0, 5))
-	local VerifyButton = CreateNavButton("✅ Verificación", UDim2.new(tabWidth * 2, 0, 0, 5))
+	local LibraryButton = CreateNavButton("🎵", UDim2.new(0, 5, 0, 5))
+	local SearchButton = CreateNavButton("🔍", UDim2.new(tabWidth, 0, 0, 5))
+	local VerifyButton = CreateNavButton("✅", UDim2.new(tabWidth * 2, 0, 0, 5))
 	
 	local AdminButton
 	if isAdmin then
-		AdminButton = CreateNavButton("⚙️ Admin", UDim2.new(tabWidth * 3, 0, 0, 5))
+		AdminButton = CreateNavButton("⚙️", UDim2.new(tabWidth * 3, 0, 0, 5))
 	end
 
 	-- Player de música (barra inferior compacta)
