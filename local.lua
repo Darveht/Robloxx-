@@ -30,9 +30,6 @@ local currentPlayingId = nil
 local currentMusicData = nil
 local isFullscreen = false
 local currentMusicIndex = nil
-local adPanel = nil
-local adTimer = 0
-local AD_INTERVAL = 10 -- segundos entre anuncios
 
 -----
 
@@ -74,14 +71,14 @@ local function CreateMainGUI()
 	TopBar.BorderSizePixel = 0
 	TopBar.Parent = MainFrame
 
-	-- Logo Amazon Music
+	-- Logo Glam Music
 	local Logo = Instance.new("TextLabel")
 	Logo.Name = "Logo"
 	Logo.Size = UDim2.new(0, 300, 1, 0)
 	Logo.Position = UDim2.new(0, 20, 0, 0)
 	Logo.BackgroundTransparency = 1
-	Logo.Text = "🎵 Amazon Music"
-	Logo.TextColor3 = Color3.fromRGB(28, 184, 231) -- Color azul Amazon
+	Logo.Text = "✨ Glam Music"
+	Logo.TextColor3 = Color3.fromRGB(28, 184, 231)
 	Logo.Font = Enum.Font.GothamBold
 	Logo.TextSize = 28
 	Logo.TextXAlignment = Enum.TextXAlignment.Left
@@ -374,85 +371,6 @@ local function CreateMainGUI()
 		RequestsList.CanvasSize = UDim2.new(0, 0, 0, RequestsLayout.AbsoluteContentSize.Y + 20)
 	end)
 
-	-- PANEL DE ANUNCIOS
-	local AdPanel = Instance.new("Frame")
-	AdPanel.Name = "AdPanel"
-	AdPanel.Size = UDim2.new(1, 0, 1, 0)
-	AdPanel.Position = UDim2.new(0, 0, 0, 0)
-	AdPanel.BackgroundColor3 = Color3.fromRGB(15, 18, 22)
-	AdPanel.Visible = false
-	AdPanel.ZIndex = 20
-	AdPanel.Parent = MainFrame
-
-	local AdGradient = Instance.new("UIGradient")
-	AdGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(189, 68, 68)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 126, 34)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(241, 196, 15))
-	}
-	AdGradient.Rotation = 45
-	AdGradient.Parent = AdPanel
-
-	local AdContainer = Instance.new("Frame")
-	AdContainer.Size = UDim2.new(0, 600, 0, 400)
-	AdContainer.Position = UDim2.new(0.5, -300, 0.5, -200)
-	AdContainer.BackgroundColor3 = Color3.fromRGB(25, 29, 35)
-	AdContainer.ZIndex = 21
-	AdContainer.Parent = AdPanel
-
-	local AdContainerCorner = Instance.new("UICorner")
-	AdContainerCorner.CornerRadius = UDim.new(0, 20)
-	AdContainerCorner.Parent = AdContainer
-
-	local AdIcon = Instance.new("TextLabel")
-	AdIcon.Size = UDim2.new(1, 0, 0, 120)
-	AdIcon.Position = UDim2.new(0, 0, 0, 40)
-	AdIcon.BackgroundTransparency = 1
-	AdIcon.Text = "🎮"
-	AdIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
-	AdIcon.Font = Enum.Font.GothamBold
-	AdIcon.TextSize = 80
-	AdIcon.ZIndex = 22
-	AdIcon.Parent = AdContainer
-
-	local AdTitle = Instance.new("TextLabel")
-	AdTitle.Size = UDim2.new(1, -60, 0, 50)
-	AdTitle.Position = UDim2.new(0, 30, 0, 170)
-	AdTitle.BackgroundTransparency = 1
-	AdTitle.Text = "¡Únete a Roblox!"
-	AdTitle.TextColor3 = Color3.fromRGB(28, 184, 231)
-	AdTitle.Font = Enum.Font.GothamBold
-	AdTitle.TextSize = 38
-	AdTitle.ZIndex = 22
-	AdTitle.Parent = AdContainer
-
-	local AdDescription = Instance.new("TextLabel")
-	AdDescription.Size = UDim2.new(1, -60, 0, 80)
-	AdDescription.Position = UDim2.new(0, 30, 0, 230)
-	AdDescription.BackgroundTransparency = 1
-	AdDescription.Text = "Crea, juega y comparte experiencias increíbles\ncon millones de jugadores en todo el mundo"
-	AdDescription.TextColor3 = Color3.fromRGB(200, 200, 200)
-	AdDescription.Font = Enum.Font.Gotham
-	AdDescription.TextSize = 18
-	AdDescription.TextWrapped = true
-	AdDescription.ZIndex = 22
-	AdDescription.Parent = AdContainer
-
-	local AdLabel = Instance.new("TextLabel")
-	AdLabel.Size = UDim2.new(0, 200, 0, 35)
-	AdLabel.Position = UDim2.new(0.5, -100, 1, -50)
-	AdLabel.BackgroundColor3 = Color3.fromRGB(189, 68, 68)
-	AdLabel.Text = "ANUNCIO"
-	AdLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	AdLabel.Font = Enum.Font.GothamBold
-	AdLabel.TextSize = 16
-	AdLabel.ZIndex = 22
-	AdLabel.Parent = AdContainer
-
-	local AdLabelCorner = Instance.new("UICorner")
-	AdLabelCorner.CornerRadius = UDim.new(0, 8)
-	AdLabelCorner.Parent = AdLabel
-
 	-- REPRODUCTOR EN PANTALLA COMPLETA
 	local FullscreenPlayer = Instance.new("Frame")
 	FullscreenPlayer.Name = "FullscreenPlayer"
@@ -696,17 +614,48 @@ local function CreateMainGUI()
 	StopCorner.CornerRadius = UDim.new(1, 0)
 	StopCorner.Parent = StopButton
 
-	-- Botón expandir
+	-- Animación de ondas de música
+	local WavesFrame = Instance.new("Frame")
+	WavesFrame.Name = "WavesFrame"
+	WavesFrame.Size = UDim2.new(0, 60, 0, 50)
+	WavesFrame.Position = UDim2.new(0, 10, 0.5, -25)
+	WavesFrame.BackgroundTransparency = 1
+	WavesFrame.Visible = false
+	WavesFrame.Parent = PlayerBar
+
+	-- Crear 5 barras de onda
+	local waves = {}
+	for i = 1, 5 do
+		local Wave = Instance.new("Frame")
+		Wave.Size = UDim2.new(0, 8, 0, 10)
+		Wave.Position = UDim2.new(0, (i - 1) * 12, 1, -10)
+		Wave.AnchorPoint = Vector2.new(0, 1)
+		Wave.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+		Wave.BorderSizePixel = 0
+		Wave.Parent = WavesFrame
+
+		local WaveCorner = Instance.new("UICorner")
+		WaveCorner.CornerRadius = UDim.new(0, 4)
+		WaveCorner.Parent = Wave
+
+		table.insert(waves, Wave)
+	end
+
+	-- Botón expandir (ahora a la derecha, junto a los controles)
 	local ExpandButton = Instance.new("TextButton")
 	ExpandButton.Name = "ExpandButton"
-	ExpandButton.Size = UDim2.new(0, 30, 0, 30)
-	ExpandButton.Position = UDim2.new(0, 10, 0, 10)
-	ExpandButton.BackgroundTransparency = 1
+	ExpandButton.Size = UDim2.new(0, 50, 0, 50)
+	ExpandButton.Position = UDim2.new(1, -185, 0.5, -25)
+	ExpandButton.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
 	ExpandButton.Text = "⬆"
 	ExpandButton.TextColor3 = Color3.fromRGB(28, 184, 231)
 	ExpandButton.Font = Enum.Font.GothamBold
-	ExpandButton.TextSize = 18
+	ExpandButton.TextSize = 20
 	ExpandButton.Parent = PlayerBar
+
+	local ExpandCorner = Instance.new("UICorner")
+	ExpandCorner.CornerRadius = UDim.new(1, 0)
+	ExpandCorner.Parent = ExpandButton
 
 	-- CONEXIONES DE UI
 
@@ -824,12 +773,14 @@ local function CreateMainGUI()
 			if currentSound.Playing then
 				currentSound:Pause()
 				PlayPauseButton.Text = "▶"
+				WavesFrame.Visible = false
 				if isFullscreen then
 					FSPlayPauseButton.Text = "▶"
 				end
 			else
 				currentSound:Play()
 				PlayPauseButton.Text = "❚❚"
+				WavesFrame.Visible = true
 				if isFullscreen then
 					FSPlayPauseButton.Text = "❚❚"
 				end
@@ -844,10 +795,12 @@ local function CreateMainGUI()
 				currentSound:Pause()
 				FSPlayPauseButton.Text = "▶"
 				PlayPauseButton.Text = "▶"
+				WavesFrame.Visible = false
 			else
 				currentSound:Play()
 				FSPlayPauseButton.Text = "❚❚"
 				PlayPauseButton.Text = "❚❚"
+				WavesFrame.Visible = true
 			end
 		end
 	end)
@@ -864,12 +817,13 @@ local function CreateMainGUI()
 			currentMusicData = nil
 			PlayPauseButton.Text = "▶"
 			FSPlayPauseButton.Text = "▶"
+			WavesFrame.Visible = false
 		end
 	end)
 
 	SetActiveTab(LibraryButton)
 
-	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList, FullscreenPlayer, FSSongTitle, FSArtistName, FSPlayPauseButton, AdPanel, ControlsFrame:FindFirstChild("FSPrevButton"), ControlsFrame:FindFirstChild("FSNextButton")
+	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList, FullscreenPlayer, FSSongTitle, FSArtistName, FSPlayPauseButton, WavesFrame, waves, ControlsFrame:FindFirstChild("FSPrevButton"), ControlsFrame:FindFirstChild("FSNextButton")
 end
 
 -----
@@ -920,15 +874,17 @@ local function PlayMusicAtIndex(index, playerBar, songInfo, artistInfo, playButt
 		artistInfo.Text = musicData.Artist .. " • " .. (musicData.Album or "")
 		playButton.Text = "❚❚"
 		
+		-- Mostrar animación de ondas
+		if wavesFrame then
+			wavesFrame.Visible = true
+		end
+		
 		-- Actualizar pantalla completa si está visible
 		if isFullscreen then
 			fsSongTitle.Text = musicData.Title
 			fsArtistName.Text = musicData.Artist .. " • " .. (musicData.Album or "")
 			fsPlayButton.Text = "❚❚"
 		end
-		
-		-- Reiniciar timer de anuncios
-		adTimer = 0
 	else
 		warn("Error al reproducir música:", err)
 		if currentSound then
@@ -960,52 +916,30 @@ local function PlayPreviousSong(playerBar, songInfo, artistInfo, playButton)
 	end
 end
 
--- SISTEMA DE ANUNCIOS
+-- ANIMACIÓN DE ONDAS
 
-local function ShowAd(adPanelFrame, playerBar, songInfo, artistInfo, playButton)
-	if not currentSound or not currentSound.Playing then return end
-	
-	-- Pausar música
-	currentSound:Pause()
-	playButton.Text = "▶"
-	if isFullscreen then
-		fsPlayButton.Text = "▶"
-	end
-	
-	-- Mostrar anuncio
-	adPanelFrame.Visible = true
-	
-	-- Esperar 7 segundos
-	task.wait(7)
-	
-	-- Ocultar anuncio
-	adPanelFrame.Visible = false
-	
-	-- Reanudar música automáticamente
-	if currentSound then
-		currentSound:Play()
-		playButton.Text = "❚❚"
-		if isFullscreen then
-			fsPlayButton.Text = "❚❚"
-		end
-	end
-	
-	-- Reiniciar timer
-	adTimer = 0
-end
-
-local function StartAdSystem(adPanelFrame, playerBar, songInfo, artistInfo, playButton)
+local function AnimateWaves(wavesArray)
 	task.spawn(function()
 		while true do
-			task.wait(1)
-			
-			if currentSound and currentSound.Playing then
-				adTimer = adTimer + 1
-				
-				if adTimer >= AD_INTERVAL then
-					ShowAd(adPanelFrame, playerBar, songInfo, artistInfo, playButton)
-				end
+			for i, wave in ipairs(wavesArray) do
+				task.spawn(function()
+					while true do
+						local randomHeight = math.random(15, 45)
+						local tweenInfo = TweenInfo.new(
+							math.random(200, 400) / 1000,
+							Enum.EasingStyle.Sine,
+							Enum.EasingDirection.InOut
+						)
+						local tween = TweenService:Create(wave, tweenInfo, {
+							Size = UDim2.new(0, 8, 0, randomHeight)
+						})
+						tween:Play()
+						task.wait(math.random(200, 400) / 1000)
+					end
+				end)
+				task.wait(0.05)
 			end
+			task.wait(1)
 		end
 	end)
 end
@@ -1251,10 +1185,10 @@ task.wait(1)
 isAdmin = CheckAdminEvent:InvokeServer()
 
 -- Crear GUI
-local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton, adPanelFrame, fsPrevButton, fsNextButton = CreateMainGUI()
+local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton, wavesFrame, waves, fsPrevButton, fsNextButton = CreateMainGUI()
 
--- Guardar referencia global
-adPanel = adPanelFrame
+-- Iniciar animación de ondas
+AnimateWaves(waves)
 
 -- Cargar biblioteca
 musicLibrary = RequestMusicList:InvokeServer()
@@ -1278,9 +1212,6 @@ if fsNextButton then
 		PlayNextSong(playerBar, songInfo, artistInfo, playButton)
 	end)
 end
-
--- Iniciar sistema de anuncios
-StartAdSystem(adPanel, playerBar, songInfo, artistInfo, playButton)
 
 -- Escuchar actualizaciones de música
 MusicUpdateEvent.OnClientEvent:Connect(function(action, data)
@@ -1339,7 +1270,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 print("════════════════════════════════════")
-print("🎵 Amazon Music Sistema Iniciado")
+print("✨ Glam Music Sistema Iniciado")
 print("Presiona 'M' para abrir la interfaz")
 print("Estado Admin:", isAdmin and "✓ Sí" or "✗ No")
 print("Canciones cargadas:", #musicLibrary)
