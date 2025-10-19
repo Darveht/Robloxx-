@@ -22,6 +22,13 @@ local RequestVerifyList = RemotesFolder:WaitForChild("RequestVerifyList")
 local VerifyUpdateEvent = RemotesFolder:WaitForChild("VerifyUpdateEvent")
 local SendChatEvent = RemotesFolder:WaitForChild("SendChatEvent")
 local ChatUpdateEvent = RemotesFolder:WaitForChild("ChatUpdateEvent")
+local SendReportEvent = RemotesFolder:WaitForChild("SendReportEvent")
+local RequestReportsEvent = RemotesFolder:WaitForChild("RequestReportsEvent")
+local ReportUpdateEvent = RemotesFolder:WaitForChild("ReportUpdateEvent")
+local UpdateMusicStatusEvent = RemotesFolder:WaitForChild("UpdateMusicStatusEvent")
+
+-- Cargar sistema de reportes
+local ReportSystem = require(script.Parent:WaitForChild("ReportSystem"))
 
 -- Variables globales
 local isAdmin = false
@@ -32,6 +39,8 @@ local currentPlayingId = nil
 local currentMusicData = nil
 local isFullscreen = false
 local currentMusicIndex = nil
+local reports = {}
+local reportFrame = nil
 
 -----
 
@@ -413,10 +422,56 @@ local function CreateMainGUI()
 	local AlbumInput = CreateInput("AlbumInput", "Álbum", UDim2.new(0, 0, 0, 120))
 	local GenreInput = CreateInput("GenreInput", "Género", UDim2.new(0.52, 0, 0, 120))
 
+	-- Checkbox Copyright
+	local CopyrightFrame = Instance.new("Frame")
+	CopyrightFrame.Size = UDim2.new(0.48, 0, 0, 45)
+	CopyrightFrame.Position = UDim2.new(0, 0, 0, 180)
+	CopyrightFrame.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
+	CopyrightFrame.Parent = FormFrame
+
+	local CopyrightCorner = Instance.new("UICorner")
+	CopyrightCorner.CornerRadius = UDim.new(0, 8)
+	CopyrightCorner.Parent = CopyrightFrame
+
+	local CopyrightCheck = Instance.new("TextButton")
+	CopyrightCheck.Name = "CopyrightCheck"
+	CopyrightCheck.Size = UDim2.new(0, 30, 0, 30)
+	CopyrightCheck.Position = UDim2.new(0, 10, 0.5, -15)
+	CopyrightCheck.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	CopyrightCheck.Text = ""
+	CopyrightCheck.Parent = CopyrightFrame
+
+	local CheckCorner = Instance.new("UICorner")
+	CheckCorner.CornerRadius = UDim.new(0, 6)
+	CheckCorner.Parent = CopyrightCheck
+
+	local hasCopyright = false
+	CopyrightCheck.MouseButton1Click:Connect(function()
+		hasCopyright = not hasCopyright
+		CopyrightCheck.Text = hasCopyright and "✓" or ""
+		CopyrightCheck.TextColor3 = Color3.fromRGB(76, 175, 80)
+		CopyrightCheck.Font = Enum.Font.GothamBold
+		CopyrightCheck.TextSize = 20
+	end)
+
+	local CopyrightLabel = Instance.new("TextLabel")
+	CopyrightLabel.Size = UDim2.new(1, -50, 1, 0)
+	CopyrightLabel.Position = UDim2.new(0, 50, 0, 0)
+	CopyrightLabel.BackgroundTransparency = 1
+	CopyrightLabel.Text = "© Tiene Copyright"
+	CopyrightLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	CopyrightLabel.Font = Enum.Font.Gotham
+	CopyrightLabel.TextSize = 14
+	CopyrightLabel.TextXAlignment = Enum.TextXAlignment.Left
+	CopyrightLabel.Parent = CopyrightFrame
+
+	-- Fecha de estreno
+	local ReleaseDateInput = CreateInput("ReleaseDateInput", "Fecha estreno (DD/MM/YYYY HH:MM)", UDim2.new(0.52, 0, 0, 180))
+
 	-- Botón agregar
 	local AddButton = Instance.new("TextButton")
 	AddButton.Size = UDim2.new(1, 0, 0, 55)
-	AddButton.Position = UDim2.new(0, 0, 0, 185)
+	AddButton.Position = UDim2.new(0, 0, 0, 245)
 	AddButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
 	AddButton.Text = "➕ Agregar Música"
 	AddButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -458,6 +513,60 @@ local function CreateMainGUI()
 
 	RequestsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		RequestsList.CanvasSize = UDim2.new(0, 0, 0, RequestsLayout.AbsoluteContentSize.Y + 20)
+	end)
+
+	-- Panel de Moderación (Reportes)
+	local ModerationPanel = Instance.new("Frame")
+	ModerationPanel.Name = "ModerationPanel"
+	ModerationPanel.Size = UDim2.new(1, -40, 1, 0)
+	ModerationPanel.Position = UDim2.new(0, 20, 0, 0)
+	ModerationPanel.BackgroundTransparency = 1
+	ModerationPanel.Visible = false
+	ModerationPanel.Parent = ContentArea
+
+	local ModTitle = Instance.new("TextLabel")
+	ModTitle.Size = UDim2.new(1, 0, 0, 50)
+	ModTitle.Position = UDim2.new(0, 0, 0, 0)
+	ModTitle.BackgroundTransparency = 1
+	ModTitle.Text = "🚨 Moderación de Reportes"
+	ModTitle.TextColor3 = Color3.fromRGB(28, 184, 231)
+	ModTitle.Font = Enum.Font.GothamBold
+	ModTitle.TextSize = 26
+	ModTitle.TextXAlignment = Enum.TextXAlignment.Left
+	ModTitle.Parent = ModerationPanel
+
+	local ReportsCount = Instance.new("TextLabel")
+	ReportsCount.Name = "ReportsCount"
+	ReportsCount.Size = UDim2.new(0, 200, 0, 40)
+	ReportsCount.Position = UDim2.new(0, 0, 0, 60)
+	ReportsCount.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	ReportsCount.Text = "📊 Total de reportes: 0"
+	ReportsCount.TextColor3 = Color3.fromRGB(255, 193, 7)
+	ReportsCount.Font = Enum.Font.GothamBold
+	ReportsCount.TextSize = 16
+	ReportsCount.Parent = ModerationPanel
+
+	local CountCorner = Instance.new("UICorner")
+	CountCorner.CornerRadius = UDim.new(0, 10)
+	CountCorner.Parent = ReportsCount
+
+	local ReportsList = Instance.new("ScrollingFrame")
+	ReportsList.Name = "ReportsList"
+	ReportsList.Size = UDim2.new(1, 0, 1, -120)
+	ReportsList.Position = UDim2.new(0, 0, 0, 110)
+	ReportsList.BackgroundTransparency = 1
+	ReportsList.ScrollBarThickness = 8
+	ReportsList.ScrollBarImageColor3 = Color3.fromRGB(28, 184, 231)
+	ReportsList.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ReportsList.Parent = ModerationPanel
+
+	local ReportsLayout = Instance.new("UIListLayout")
+	ReportsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ReportsLayout.Padding = UDim.new(0, 12)
+	ReportsLayout.Parent = ReportsList
+
+	ReportsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ReportsList.CanvasSize = UDim2.new(0, 0, 0, ReportsLayout.AbsoluteContentSize.Y + 20)
 	end)
 
 	-- REPRODUCTOR EN PANTALLA COMPLETA
@@ -746,6 +855,22 @@ local function CreateMainGUI()
 	ExpandCorner.CornerRadius = UDim.new(1, 0)
 	ExpandCorner.Parent = ExpandButton
 
+	-- Botón reportar
+	local ReportButton = Instance.new("TextButton")
+	ReportButton.Name = "ReportButton"
+	ReportButton.Size = UDim2.new(0, 50, 0, 50)
+	ReportButton.Position = UDim2.new(1, -250, 0.5, -25)
+	ReportButton.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
+	ReportButton.Text = "🚨"
+	ReportButton.TextColor3 = Color3.fromRGB(255, 87, 34)
+	ReportButton.Font = Enum.Font.GothamBold
+	ReportButton.TextSize = 20
+	ReportButton.Parent = PlayerBar
+
+	local ReportCorner = Instance.new("UICorner")
+	ReportCorner.CornerRadius = UDim.new(1, 0)
+	ReportCorner.Parent = ReportButton
+
 	-- CONEXIONES DE UI
 
 	-- Función para expandir/contraer reproductor
@@ -813,12 +938,39 @@ local function CreateMainGUI()
 	end)
 
 	if isAdmin then
+		-- Botón Moderación en TopBar
+		local ModerationButton = Instance.new("TextButton")
+		ModerationButton.Name = "ModerationButton"
+		ModerationButton.Size = UDim2.new(0, 160, 0, 50)
+		ModerationButton.Position = UDim2.new(1, -360, 0.5, -25)
+		ModerationButton.BackgroundColor3 = Color3.fromRGB(255, 87, 34)
+		ModerationButton.Text = "🚨 Moderación"
+		ModerationButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		ModerationButton.Font = Enum.Font.GothamBold
+		ModerationButton.TextSize = 16
+		ModerationButton.BorderSizePixel = 0
+		ModerationButton.Parent = TopBar
+
+		local ModButtonCorner = Instance.new("UICorner")
+		ModButtonCorner.CornerRadius = UDim.new(0, 10)
+		ModButtonCorner.Parent = ModerationButton
+
+		ModerationButton.MouseButton1Click:Connect(function()
+			LibraryPanel.Visible = false
+			SearchPanel.Visible = false
+			VerifyPanel.Visible = false
+			AdminPanel.Visible = false
+			CommunityPanel.Visible = false
+			ModerationPanel.Visible = true
+		end)
+
 		AdminButton.MouseButton1Click:Connect(function()
 			LibraryPanel.Visible = false
 			SearchPanel.Visible = false
 			VerifyPanel.Visible = false
 			AdminPanel.Visible = true
 			CommunityPanel.Visible = false
+			ModerationPanel.Visible = false
 			SetActiveTab(AdminButton)
 		end)
 		
@@ -853,13 +1005,32 @@ local function CreateMainGUI()
 		local soundId = SoundIdInput.Text
 		
 		if title ~= "" and artist ~= "" and soundId ~= "" then
+			local releaseTimestamp = nil
+			local releaseDateText = ReleaseDateInput.Text
+			
+			-- Parsear fecha si existe
+			if releaseDateText ~= "" then
+				local day, month, year, hour, min = releaseDateText:match("(%d+)/(%d+)/(%d+)%s+(%d+):(%d+)")
+				if day and month and year and hour and min then
+					releaseTimestamp = os.time({
+						day = tonumber(day),
+						month = tonumber(month),
+						year = tonumber(year),
+						hour = tonumber(hour),
+						min = tonumber(min)
+					})
+				end
+			end
+			
 			local musicData = {
 				Title = title,
 				Artist = artist,
 				SoundId = soundId,
 				Duration = DurationInput.Text ~= "" and DurationInput.Text or "3:30",
 				Album = AlbumInput.Text ~= "" and AlbumInput.Text or "Single",
-				Genre = GenreInput.Text ~= "" and GenreInput.Text or "Pop"
+				Genre = GenreInput.Text ~= "" and GenreInput.Text or "Pop",
+				HasCopyright = hasCopyright,
+				ReleaseDate = releaseTimestamp
 			}
 			
 			AddMusicEvent:FireServer(musicData)
@@ -871,6 +1042,16 @@ local function CreateMainGUI()
 			DurationInput.Text = ""
 			AlbumInput.Text = ""
 			GenreInput.Text = ""
+			ReleaseDateInput.Text = ""
+			hasCopyright = false
+			CopyrightCheck.Text = ""
+		end
+	end)
+
+	-- Botón reportar
+	ReportButton.MouseButton1Click:Connect(function()
+		if currentMusicData and reportFrame then
+			reportFrame.Visible = true
 		end
 	end)
 
@@ -952,11 +1133,30 @@ local function PlayMusicAtIndex(index, playerBar, songInfo, artistInfo, playButt
 	
 	local musicData = musicLibrary[index]
 	
+	-- Verificar si está bloqueada o deshabilitada
+	if musicData.Status == "blocked" or musicData.Status == "disabled" then
+		ShowNotification(gui, "⚠️ Esta música no está disponible", Color3.fromRGB(255, 152, 0))
+		return
+	end
+	
+	-- Verificar fecha de estreno
+	if musicData.ReleaseDate and os.time() < musicData.ReleaseDate then
+		local timeLeft = musicData.ReleaseDate - os.time()
+		local days = math.floor(timeLeft / 86400)
+		local hours = math.floor((timeLeft % 86400) / 3600)
+		local mins = math.floor((timeLeft % 3600) / 60)
+		ShowNotification(gui, string.format("⏰ Se estrena en: %dd %dh %dm", days, hours, mins), Color3.fromRGB(28, 184, 231))
+		return
+	end
+	
 	-- Detener sonido anterior
 	if currentSound then
 		currentSound:Stop()
 		currentSound:Destroy()
 	end
+	
+	-- Actualizar interfaz de reportes
+	UpdateReportFrame()
 	
 	-- Crear nuevo sonido
 	currentSound = Instance.new("Sound")
@@ -1358,6 +1558,17 @@ local chatMessages = {}
 -- Crear GUI
 local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton, wavesFrame, waves, fsPrevButton, fsNextButton, communityPanel, chatList, chatInput, sendChatButton = CreateMainGUI()
 
+-- Crear interfaz de reportes
+reportFrame = ReportSystem.CreateReportUI(gui, {Id = 0, Title = "", Artist = ""})
+
+-- Actualizar reportFrame cuando cambie la música
+local function UpdateReportFrame()
+	if currentMusicData and reportFrame then
+		reportFrame:Destroy()
+		reportFrame = ReportSystem.CreateReportUI(gui, currentMusicData)
+	end
+end
+
 -- Funciones de chat (solo para admins)
 if isAdmin and communityPanel then
 	sendChatButton.MouseButton1Click:Connect(function()
@@ -1392,6 +1603,73 @@ UpdateSearchResults(searchPanel:FindFirstChild("SearchResults"), "")
 if isAdmin then
 	verificationRequests = RequestVerifyList:InvokeServer() or {}
 	UpdateRequests(requestsList)
+	
+	-- Cargar reportes
+	reports = RequestReportsEvent:InvokeServer() or {}
+	local moderationPanel = gui.MainFrame.ContentArea:FindFirstChild("ModerationPanel")
+	if moderationPanel then
+		local reportsCount = moderationPanel:FindFirstChild("ReportsCount")
+		local reportsList = moderationPanel:FindFirstChild("ReportsList")
+		
+		if reportsCount then
+			local pendingCount = 0
+			for _, report in ipairs(reports) do
+				if report.Status == "pending" then
+					pendingCount = pendingCount + 1
+				end
+			end
+			reportsCount.Text = "📊 Reportes pendientes: " .. pendingCount .. " / Total: " .. #reports
+		end
+		
+		if reportsList then
+			for _, child in pairs(reportsList:GetChildren()) do
+				if child:IsA("Frame") then
+					child:Destroy()
+				end
+			end
+			
+			for _, report in ipairs(reports) do
+				if report.Status == "pending" then
+					ReportSystem.CreateReportCard(report, reportsList, function(action, reportData)
+						if action == "delete" then
+							UpdateMusicStatusEvent:FireServer("delete", reportData.MusicId)
+						elseif action == "block" then
+							UpdateMusicStatusEvent:FireServer("block", reportData.MusicId)
+						elseif action == "dismiss" then
+							-- Solo marcar como resuelto sin hacer nada
+						end
+						
+						-- Recargar reportes
+						task.wait(0.5)
+						reports = RequestReportsEvent:InvokeServer() or {}
+					end)
+				end
+			end
+		end
+	end
+	
+	-- Escuchar nuevos reportes
+	ReportUpdateEvent.OnClientEvent:Connect(function(action, reportData)
+		if action == "NEW_REPORT" then
+			table.insert(reports, reportData)
+			ShowNotification(gui, "🚨 Nuevo reporte recibido", Color3.fromRGB(255, 87, 34))
+			
+			-- Actualizar contador
+			local moderationPanel = gui.MainFrame.ContentArea:FindFirstChild("ModerationPanel")
+			if moderationPanel then
+				local reportsCount = moderationPanel:FindFirstChild("ReportsCount")
+				if reportsCount then
+					local pendingCount = 0
+					for _, report in ipairs(reports) do
+						if report.Status == "pending" then
+							pendingCount = pendingCount + 1
+						end
+					end
+					reportsCount.Text = "📊 Reportes pendientes: " .. pendingCount .. " / Total: " .. #reports
+				end
+			end
+		end
+	end)
 end
 
 -- Conectar botones de navegación fullscreen

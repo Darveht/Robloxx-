@@ -61,6 +61,22 @@ local ChatUpdateEvent = Instance.new("RemoteEvent")
 ChatUpdateEvent.Name = "ChatUpdateEvent"
 ChatUpdateEvent.Parent = RemoteEventsFolder
 
+local SendReportEvent = Instance.new("RemoteEvent")
+SendReportEvent.Name = "SendReportEvent"
+SendReportEvent.Parent = RemoteEventsFolder
+
+local RequestReportsEvent = Instance.new("RemoteFunction")
+RequestReportsEvent.Name = "RequestReportsEvent"
+RequestReportsEvent.Parent = RemoteEventsFolder
+
+local ReportUpdateEvent = Instance.new("RemoteEvent")
+ReportUpdateEvent.Name = "ReportUpdateEvent"
+ReportUpdateEvent.Parent = RemoteEventsFolder
+
+local UpdateMusicStatusEvent = Instance.new("RemoteEvent")
+UpdateMusicStatusEvent.Name = "UpdateMusicStatusEvent"
+UpdateMusicStatusEvent.Parent = RemoteEventsFolder
+
 -- Tabla local de canciones (cache)
 local MusicLibrary = {}
 
@@ -69,6 +85,12 @@ local VerificationRequests = {}
 
 -- Tabla de mensajes de chat de comunidad
 local ChatMessages = {}
+
+-- Tabla de reportes
+local Reports = {}
+
+-- DataStore para reportes
+local ReportsDataStore = DataStoreService:GetDataStore("MusicReports")
 
 -----
 
@@ -130,6 +152,34 @@ local function SaveRequests()
 	end
 end
 
+-- Cargar reportes
+local function LoadReports()
+	local success, data = pcall(function()
+		return ReportsDataStore:GetAsync("ReportsList")
+	end)
+	
+	if success and data then
+		Reports = data
+		print("Reportes cargados:", #Reports)
+	else
+		Reports = {}
+		print("Iniciando nuevos reportes.")
+	end
+end
+
+-- Guardar reportes
+local function SaveReports()
+	local success, err = pcall(function()
+		ReportsDataStore:SetAsync("ReportsList", Reports)
+	end)
+	
+	if success then
+		print("Reportes guardados exitosamente")
+	else
+		warn("Error al guardar reportes:", err)
+	end
+end
+
 -- Verificar si un jugador es admin
 local function IsAdmin(player)
 	return Admins[player.Name] or false
@@ -180,7 +230,10 @@ AddMusicEvent.OnServerEvent:Connect(function(player, musicData)
 		Album = musicData.Album or "Single",
 		Genre = musicData.Genre or "Pop",
 		AddedBy = player.Name,
-		Timestamp = os.time()
+		Timestamp = os.time(),
+		Status = "active",
+		HasCopyright = musicData.HasCopyright or false,
+		ReleaseDate = musicData.ReleaseDate or nil
 	}
 	
 	table.insert(MusicLibrary, newMusic)
@@ -233,6 +286,80 @@ SendChatEvent.OnServerEvent:Connect(function(player, message)
 	end
 end)
 
+-- Enviar reporte
+SendReportEvent.OnServerEvent:Connect(function(player, reportData)
+	if not reportData or not reportData.MusicId then return end
+	
+	local report = {
+		Id = #Reports + 1,
+		MusicId = reportData.MusicId,
+		MusicTitle = reportData.MusicTitle,
+		MusicArtist = reportData.MusicArtist,
+		Reason = reportData.Reason,
+		Description = reportData.Description or "",
+		ReporterName = player.Name,
+		ReporterId = player.UserId,
+		Timestamp = os.time(),
+		Status = "pending"
+	}
+	
+	table.insert(Reports, report)
+	SaveReports()
+	
+	print(player.Name .. " reportó música:", reportData.MusicTitle)
+	
+	-- Notificar a admins
+	for _, p in ipairs(Players:GetPlayers()) do
+		if IsAdmin(p) then
+			ReportUpdateEvent:FireClient(p, "NEW_REPORT", report)
+		end
+	end
+end)
+
+-- Obtener reportes (solo admins)
+RequestReportsEvent.OnServerInvoke = function(player)
+	if IsAdmin(player) then
+		return Reports
+	end
+	return {}
+end
+
+-- Actualizar estado de música
+UpdateMusicStatusEvent.OnServerEvent:Connect(function(player, action, musicId)
+	if not IsAdmin(player) then return end
+	
+	for i, music in ipairs(MusicLibrary) do
+		if music.Id == musicId then
+			if action == "delete" then
+				table.remove(MusicLibrary, i)
+				SaveMusicLibrary()
+				MusicUpdateEvent:FireAllClients("DELETE", musicId)
+			elseif action == "block" then
+				music.Status = "blocked"
+				SaveMusicLibrary()
+				MusicUpdateEvent:FireAllClients("UPDATE", music)
+			elseif action == "disable" then
+				music.Status = "disabled"
+				SaveMusicLibrary()
+				MusicUpdateEvent:FireAllClients("UPDATE", music)
+			elseif action == "enable" then
+				music.Status = "active"
+				SaveMusicLibrary()
+				MusicUpdateEvent:FireAllClients("UPDATE", music)
+			end
+			break
+		end
+	end
+	
+	-- Marcar reportes como resueltos
+	for _, report in ipairs(Reports) do
+		if report.MusicId == musicId and report.Status == "pending" then
+			report.Status = "resolved"
+		end
+	end
+	SaveReports()
+end)
+
 -- Enviar solicitud de verificación
 SendVerifyRequest.OnServerEvent:Connect(function(player, message)
 	if not message or message == "" then return end
@@ -265,12 +392,14 @@ end)
 -- Cargar biblioteca al iniciar
 LoadMusicLibrary()
 LoadRequests()
+LoadReports()
 
 -- Auto-guardar cada 5 minutos
 task.spawn(function()
 	while task.wait(300) do
 		SaveMusicLibrary()
 		SaveRequests()
+		SaveReports()
 	end
 end)
 
