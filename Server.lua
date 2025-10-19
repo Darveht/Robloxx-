@@ -7,13 +7,13 @@ local Players = game:GetService("Players")
 -- DataStore para guardar las canciones
 local MusicDataStore = DataStoreService:GetDataStore("AmazonMusicStore")
 
--- DataStore para solicitudes de verificaciÃ³n
+-- DataStore para solicitudes de verificación
 local VerifyDataStore = DataStoreService:GetDataStore("VerifyRequests")
 
 -- Lista de administradores
 local Admins = {
 	["Vegetl_t"] = true,
-	-- Agrega mÃ¡s admins aquÃ­: ["NombreUsuario"] = true,
+	-- Agrega más admins aquí: ["NombreUsuario"] = true,
 }
 
 -- RemoteEvents y RemoteFunctions (Se crean y se adjuntan a ReplicatedStorage)
@@ -64,7 +64,7 @@ ChatUpdateEvent.Parent = RemoteEventsFolder
 -- Tabla local de canciones (cache)
 local MusicLibrary = {}
 
--- Tabla de solicitudes de verificaciÃ³n
+-- Tabla de solicitudes de verificación
 local VerificationRequests = {}
 
 -- Tabla de mensajes de chat de comunidad
@@ -82,10 +82,10 @@ local function LoadMusicLibrary()
 	
 	if success and data then
 		MusicLibrary = data
-		print("Biblioteca de mÃºsica cargada:", #MusicLibrary, "canciones")
+		print("Biblioteca de música cargada:", #MusicLibrary, "canciones")
 	else
 		MusicLibrary = {}
-		print("Iniciando nueva biblioteca de mÃºsica o error al cargar.")
+		print("Iniciando nueva biblioteca de música o error al cargar.")
 	end
 end
 
@@ -102,7 +102,7 @@ local function SaveMusicLibrary()
 	end
 end
 
--- Cargar solicitudes de verificaciÃ³n
+-- Cargar solicitudes de verificación
 local function LoadRequests()
 	local success, data = pcall(function()
 		return VerifyDataStore:GetAsync("Requests")
@@ -117,7 +117,7 @@ local function LoadRequests()
 	end
 end
 
--- Guardar solicitudes de verificaciÃ³n
+-- Guardar solicitudes de verificación
 local function SaveRequests()
 	local success, err = pcall(function()
 		VerifyDataStore:SetAsync("Requests", VerificationRequests)
@@ -139,7 +139,7 @@ end
 
 -- CONEXIONES DE REMOTES
 
--- FunciÃ³n para obtener la lista de mÃºsica
+-- Función para obtener la lista de música
 RequestMusicList.OnServerInvoke = function(player)
 	return MusicLibrary
 end
@@ -157,20 +157,20 @@ RequestVerifyList.OnServerInvoke = function(player)
 	return {}
 end
 
--- Agregar mÃºsica (solo admins)
+-- Agregar música (solo admins)
 AddMusicEvent.OnServerEvent:Connect(function(player, musicData)
 	if not IsAdmin(player) then
-		warn(player.Name .. " intentÃ³ agregar mÃºsica sin permisos")
+		warn(player.Name .. " intentó agregar música sin permisos")
 		return
 	end
 	
 	-- Validar datos
 	if not musicData.Title or not musicData.Artist or not musicData.SoundId then
-		warn("Datos de mÃºsica invÃ¡lidos")
+		warn("Datos de música inválidos")
 		return
 	end
 	
-	-- Crear nuevo registro de mÃºsica
+	-- Crear nuevo registro de música
 	local newMusic = {
 		Id = #MusicLibrary + 1,
 		Title = musicData.Title,
@@ -186,16 +186,16 @@ AddMusicEvent.OnServerEvent:Connect(function(player, musicData)
 	table.insert(MusicLibrary, newMusic)
 	SaveMusicLibrary()
 	
-	print(player.Name .. " agregÃ³ nueva mÃºsica:", newMusic.Title)
+	print(player.Name .. " agregó nueva música:", newMusic.Title)
 	
 	-- Notificar a todos los clientes
 	MusicUpdateEvent:FireAllClients("ADD", newMusic)
 end)
 
--- Eliminar mÃºsica (solo admins)
+-- Eliminar música (solo admins)
 DeleteMusicEvent.OnServerEvent:Connect(function(player, musicId)
 	if not IsAdmin(player) then
-		warn(player.Name .. " intentÃ³ eliminar mÃºsica sin permisos")
+		warn(player.Name .. " intentó eliminar música sin permisos")
 		return
 	end
 	
@@ -203,7 +203,7 @@ DeleteMusicEvent.OnServerEvent:Connect(function(player, musicId)
 		if music.Id == musicId then
 			table.remove(MusicLibrary, i)
 			SaveMusicLibrary()
-			print(player.Name .. " eliminÃ³ mÃºsica ID:", musicId)
+			print(player.Name .. " eliminó música ID:", musicId)
 			
 			-- Notificar a todos los clientes
 			MusicUpdateEvent:FireAllClients("DELETE", musicId)
@@ -233,7 +233,7 @@ SendChatEvent.OnServerEvent:Connect(function(player, message)
 	end
 end)
 
--- Enviar solicitud de verificaciÃ³n
+-- Enviar solicitud de verificación
 SendVerifyRequest.OnServerEvent:Connect(function(player, message)
 	if not message or message == "" then return end
 	
@@ -248,7 +248,7 @@ SendVerifyRequest.OnServerEvent:Connect(function(player, message)
 	table.insert(VerificationRequests, req)
 	SaveRequests()
 	
-	print(player.Name .. " enviÃ³ solicitud de verificaciÃ³n")
+	print(player.Name .. " envió solicitud de verificación")
 	
 	-- Notificar a admins online
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -260,7 +260,7 @@ end)
 
 -----
 
--- INICIALIZACIÃ“N
+-- INICIALIZACIÓN
 
 -- Cargar biblioteca al iniciar
 LoadMusicLibrary()
