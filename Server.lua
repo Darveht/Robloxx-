@@ -53,11 +53,22 @@ local VerifyUpdateEvent = Instance.new("RemoteEvent")
 VerifyUpdateEvent.Name = "VerifyUpdateEvent"
 VerifyUpdateEvent.Parent = RemoteEventsFolder
 
+local SendChatEvent = Instance.new("RemoteEvent")
+SendChatEvent.Name = "SendChatEvent"
+SendChatEvent.Parent = RemoteEventsFolder
+
+local ChatUpdateEvent = Instance.new("RemoteEvent")
+ChatUpdateEvent.Name = "ChatUpdateEvent"
+ChatUpdateEvent.Parent = RemoteEventsFolder
+
 -- Tabla local de canciones (cache)
 local MusicLibrary = {}
 
 -- Tabla de solicitudes de verificación
 local VerificationRequests = {}
+
+-- Tabla de mensajes de chat de comunidad
+local ChatMessages = {}
 
 -----
 
@@ -197,6 +208,27 @@ DeleteMusicEvent.OnServerEvent:Connect(function(player, musicId)
 			-- Notificar a todos los clientes
 			MusicUpdateEvent:FireAllClients("DELETE", musicId)
 			break
+		end
+	end
+end)
+
+-- Enviar mensaje de chat (solo admins)
+SendChatEvent.OnServerEvent:Connect(function(player, message)
+	if not IsAdmin(player) then return end
+	if not message or message == "" then return end
+	
+	local chatData = {
+		User = player.Name,
+		Message = message,
+		Timestamp = os.time()
+	}
+	
+	table.insert(ChatMessages, chatData)
+	
+	-- Enviar a todos los admins online
+	for _, p in ipairs(Players:GetPlayers()) do
+		if IsAdmin(p) then
+			ChatUpdateEvent:FireClient(p, chatData)
 		end
 	end
 end)

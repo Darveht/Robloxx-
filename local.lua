@@ -20,6 +20,8 @@ local MusicUpdateEvent = RemotesFolder:WaitForChild("MusicUpdateEvent")
 local SendVerifyRequest = RemotesFolder:WaitForChild("SendVerifyRequest")
 local RequestVerifyList = RemotesFolder:WaitForChild("RequestVerifyList")
 local VerifyUpdateEvent = RemotesFolder:WaitForChild("VerifyUpdateEvent")
+local SendChatEvent = RemotesFolder:WaitForChild("SendChatEvent")
+local ChatUpdateEvent = RemotesFolder:WaitForChild("ChatUpdateEvent")
 
 -- Variables globales
 local isAdmin = false
@@ -84,29 +86,25 @@ local function CreateMainGUI()
 	Logo.TextXAlignment = Enum.TextXAlignment.Left
 	Logo.Parent = TopBar
 
-	-- Botón cerrar
-	local CloseButton = Instance.new("TextButton")
-	CloseButton.Name = "CloseButton"
-	CloseButton.Size = UDim2.new(0, 50, 0, 50)
-	CloseButton.Position = UDim2.new(1, -60, 0.5, -25)
-	CloseButton.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
-	CloseButton.Text = "✕"
-	CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	CloseButton.Font = Enum.Font.GothamBold
-	CloseButton.TextSize = 20
-	CloseButton.BorderSizePixel = 0
-	CloseButton.Parent = TopBar
+	-- Botón Comunidad (solo para admins)
+	local CommunityButton
+	if isAdmin then
+		CommunityButton = Instance.new("TextButton")
+		CommunityButton.Name = "CommunityButton"
+		CommunityButton.Size = UDim2.new(0, 160, 0, 50)
+		CommunityButton.Position = UDim2.new(1, -180, 0.5, -25)
+		CommunityButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+		CommunityButton.Text = "👥 Comunidad"
+		CommunityButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		CommunityButton.Font = Enum.Font.GothamBold
+		CommunityButton.TextSize = 16
+		CommunityButton.BorderSizePixel = 0
+		CommunityButton.Parent = TopBar
 
-	local CloseCorner = Instance.new("UICorner")
-	CloseCorner.CornerRadius = UDim.new(0, 10)
-	CloseCorner.Parent = CloseButton
-
-	CloseButton.MouseButton1Click:Connect(function()
-		MainFrame.Visible = false
-		if currentSound then
-			currentSound:Pause()
-		end
-	end)
+		local CommunityCorner = Instance.new("UICorner")
+		CommunityCorner.CornerRadius = UDim.new(0, 10)
+		CommunityCorner.Parent = CommunityButton
+	end
 
 	-- Área de contenido
 	local ContentArea = Instance.new("Frame")
@@ -246,6 +244,97 @@ local function CreateMainGUI()
 	local SendCorner = Instance.new("UICorner")
 	SendCorner.CornerRadius = UDim.new(0, 12)
 	SendCorner.Parent = SendButton
+
+	-- Panel de Comunidad (Chat de Admins)
+	local CommunityPanel = Instance.new("Frame")
+	CommunityPanel.Name = "CommunityPanel"
+	CommunityPanel.Size = UDim2.new(1, -40, 1, 0)
+	CommunityPanel.Position = UDim2.new(0, 20, 0, 0)
+	CommunityPanel.BackgroundTransparency = 1
+	CommunityPanel.Visible = false
+	CommunityPanel.Parent = ContentArea
+
+	local CommunityTitle = Instance.new("TextLabel")
+	CommunityTitle.Size = UDim2.new(1, 0, 0, 50)
+	CommunityTitle.Position = UDim2.new(0, 0, 0, 0)
+	CommunityTitle.BackgroundTransparency = 1
+	CommunityTitle.Text = "👥 Comunidad de Desarrolladores"
+	CommunityTitle.TextColor3 = Color3.fromRGB(28, 184, 231)
+	CommunityTitle.Font = Enum.Font.GothamBold
+	CommunityTitle.TextSize = 26
+	CommunityTitle.TextXAlignment = Enum.TextXAlignment.Left
+	CommunityTitle.Parent = CommunityPanel
+
+	-- Lista de mensajes de chat
+	local ChatList = Instance.new("ScrollingFrame")
+	ChatList.Name = "ChatList"
+	ChatList.Size = UDim2.new(1, 0, 1, -125)
+	ChatList.Position = UDim2.new(0, 0, 0, 60)
+	ChatList.BackgroundColor3 = Color3.fromRGB(35, 39, 47)
+	ChatList.BorderSizePixel = 0
+	ChatList.ScrollBarThickness = 8
+	ChatList.ScrollBarImageColor3 = Color3.fromRGB(28, 184, 231)
+	ChatList.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ChatList.Parent = CommunityPanel
+
+	local ChatCorner = Instance.new("UICorner")
+	ChatCorner.CornerRadius = UDim.new(0, 15)
+	ChatCorner.Parent = ChatList
+
+	local ChatLayout = Instance.new("UIListLayout")
+	ChatLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ChatLayout.Padding = UDim.new(0, 8)
+	ChatLayout.Parent = ChatList
+
+	local ChatPadding = Instance.new("UIPadding")
+	ChatPadding.PaddingLeft = UDim.new(0, 15)
+	ChatPadding.PaddingRight = UDim.new(0, 15)
+	ChatPadding.PaddingTop = UDim.new(0, 15)
+	ChatPadding.PaddingBottom = UDim.new(0, 15)
+	ChatPadding.Parent = ChatList
+
+	ChatLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ChatList.CanvasSize = UDim2.new(0, 0, 0, ChatLayout.AbsoluteContentSize.Y + 30)
+		ChatList.CanvasPosition = Vector2.new(0, ChatList.AbsoluteCanvasSize.Y)
+	end)
+
+	-- Input de mensaje
+	local ChatInput = Instance.new("TextBox")
+	ChatInput.Name = "ChatInput"
+	ChatInput.Size = UDim2.new(1, -120, 0, 50)
+	ChatInput.Position = UDim2.new(0, 0, 1, -55)
+	ChatInput.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
+	ChatInput.PlaceholderText = "Escribe un mensaje..."
+	ChatInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+	ChatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+	ChatInput.Font = Enum.Font.Gotham
+	ChatInput.TextSize = 16
+	ChatInput.TextXAlignment = Enum.TextXAlignment.Left
+	ChatInput.ClearTextOnFocus = false
+	ChatInput.Parent = CommunityPanel
+
+	local ChatInputPadding = Instance.new("UIPadding")
+	ChatInputPadding.PaddingLeft = UDim.new(0, 15)
+	ChatInputPadding.Parent = ChatInput
+
+	local ChatInputCorner = Instance.new("UICorner")
+	ChatInputCorner.CornerRadius = UDim.new(0, 12)
+	ChatInputCorner.Parent = ChatInput
+
+	-- Botón enviar mensaje
+	local SendChatButton = Instance.new("TextButton")
+	SendChatButton.Size = UDim2.new(0, 100, 0, 50)
+	SendChatButton.Position = UDim2.new(1, -100, 1, -55)
+	SendChatButton.BackgroundColor3 = Color3.fromRGB(28, 184, 231)
+	SendChatButton.Text = "Enviar"
+	SendChatButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	SendChatButton.Font = Enum.Font.GothamBold
+	SendChatButton.TextSize = 16
+	SendChatButton.Parent = CommunityPanel
+
+	local SendChatCorner = Instance.new("UICorner")
+	SendChatCorner.CornerRadius = UDim.new(0, 12)
+	SendChatCorner.Parent = SendChatButton
 
 	-- Panel de Admin
 	local AdminPanel = Instance.new("Frame")
@@ -695,6 +784,9 @@ local function CreateMainGUI()
 		SearchPanel.Visible = false
 		VerifyPanel.Visible = false
 		AdminPanel.Visible = false
+		if isAdmin then
+			CommunityPanel.Visible = false
+		end
 		SetActiveTab(LibraryButton)
 	end)
 
@@ -703,6 +795,9 @@ local function CreateMainGUI()
 		SearchPanel.Visible = true
 		VerifyPanel.Visible = false
 		AdminPanel.Visible = false
+		if isAdmin then
+			CommunityPanel.Visible = false
+		end
 		SetActiveTab(SearchButton)
 	end)
 
@@ -711,6 +806,9 @@ local function CreateMainGUI()
 		SearchPanel.Visible = false
 		VerifyPanel.Visible = true
 		AdminPanel.Visible = false
+		if isAdmin then
+			CommunityPanel.Visible = false
+		end
 		SetActiveTab(VerifyButton)
 	end)
 
@@ -720,7 +818,16 @@ local function CreateMainGUI()
 			SearchPanel.Visible = false
 			VerifyPanel.Visible = false
 			AdminPanel.Visible = true
+			CommunityPanel.Visible = false
 			SetActiveTab(AdminButton)
+		end)
+		
+		CommunityButton.MouseButton1Click:Connect(function()
+			LibraryPanel.Visible = false
+			SearchPanel.Visible = false
+			VerifyPanel.Visible = false
+			AdminPanel.Visible = false
+			CommunityPanel.Visible = true
 		end)
 	end
 
@@ -823,7 +930,7 @@ local function CreateMainGUI()
 
 	SetActiveTab(LibraryButton)
 
-	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList, FullscreenPlayer, FSSongTitle, FSArtistName, FSPlayPauseButton, WavesFrame, waves, ControlsFrame:FindFirstChild("FSPrevButton"), ControlsFrame:FindFirstChild("FSNextButton")
+	return ScreenGui, LibraryPanel, SearchPanel, VerifyPanel, AdminPanel, PlayerBar, SongInfo, ArtistInfo, PlayPauseButton, RequestsList, FullscreenPlayer, FSSongTitle, FSArtistName, FSPlayPauseButton, WavesFrame, waves, ControlsFrame:FindFirstChild("FSPrevButton"), ControlsFrame:FindFirstChild("FSNextButton"), CommunityPanel, ChatList, ChatInput, SendChatButton
 end
 
 -----
@@ -1109,6 +1216,67 @@ local function UpdateSearchResults(searchResults, query)
 	end
 end
 
+-- Crear mensaje de chat
+local function CreateChatMessage(messageData, parent)
+	local MessageFrame = Instance.new("Frame")
+	MessageFrame.Size = UDim2.new(1, 0, 0, 0)
+	MessageFrame.BackgroundTransparency = 1
+	MessageFrame.AutomaticSize = Enum.AutomaticSize.Y
+	MessageFrame.Parent = parent
+
+	local UserFrame = Instance.new("Frame")
+	UserFrame.Size = UDim2.new(1, 0, 0, 25)
+	UserFrame.BackgroundTransparency = 1
+	UserFrame.Parent = MessageFrame
+
+	local UserLabel = Instance.new("TextLabel")
+	UserLabel.Size = UDim2.new(0, 0, 1, 0)
+	UserLabel.AutomaticSize = Enum.AutomaticSize.X
+	UserLabel.BackgroundTransparency = 1
+	UserLabel.Text = messageData.User
+	UserLabel.TextColor3 = Color3.fromRGB(28, 184, 231)
+	UserLabel.Font = Enum.Font.GothamBold
+	UserLabel.TextSize = 15
+	UserLabel.TextXAlignment = Enum.TextXAlignment.Left
+	UserLabel.Parent = UserFrame
+
+	-- Icono de verificación azul para Vegetl_t
+	if messageData.User == "Vegetl_t" then
+		local VerifiedBadge = Instance.new("ImageLabel")
+		VerifiedBadge.Size = UDim2.new(0, 18, 0, 18)
+		VerifiedBadge.Position = UDim2.new(0, UserLabel.TextBounds.X + 5, 0.5, -9)
+		VerifiedBadge.BackgroundTransparency = 1
+		VerifiedBadge.Image = "rbxassetid://7045488196"
+		VerifiedBadge.ImageColor3 = Color3.fromRGB(0, 162, 255)
+		VerifiedBadge.Parent = UserFrame
+	end
+
+	local TimeLabel = Instance.new("TextLabel")
+	TimeLabel.Size = UDim2.new(0, 100, 1, 0)
+	TimeLabel.Position = UDim2.new(1, -100, 0, 0)
+	TimeLabel.BackgroundTransparency = 1
+	TimeLabel.Text = os.date("%H:%M", messageData.Timestamp)
+	TimeLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+	TimeLabel.Font = Enum.Font.Gotham
+	TimeLabel.TextSize = 12
+	TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
+	TimeLabel.Parent = UserFrame
+
+	local MessageText = Instance.new("TextLabel")
+	MessageText.Size = UDim2.new(1, 0, 0, 0)
+	MessageText.Position = UDim2.new(0, 0, 0, 25)
+	MessageText.AutomaticSize = Enum.AutomaticSize.Y
+	MessageText.BackgroundTransparency = 1
+	MessageText.Text = messageData.Message
+	MessageText.TextColor3 = Color3.fromRGB(220, 220, 220)
+	MessageText.Font = Enum.Font.Gotham
+	MessageText.TextSize = 14
+	MessageText.TextXAlignment = Enum.TextXAlignment.Left
+	MessageText.TextYAlignment = Enum.TextYAlignment.Top
+	MessageText.TextWrapped = true
+	MessageText.Parent = MessageFrame
+end
+
 -- Crear tarjeta de solicitud
 local function CreateRequestCard(req, parent)
 	local Card = Instance.new("Frame")
@@ -1184,8 +1352,34 @@ task.wait(1)
 -- Verificar si es admin
 isAdmin = CheckAdminEvent:InvokeServer()
 
+-- Variables para chat de comunidad
+local chatMessages = {}
+
 -- Crear GUI
-local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton, wavesFrame, waves, fsPrevButton, fsNextButton = CreateMainGUI()
+local gui, libraryPanel, searchPanel, verifyPanel, adminPanel, playerBar, songInfo, artistInfo, playButton, requestsList, fullscreenPlayer, fsSongTitle, fsArtistName, fsPlayButton, wavesFrame, waves, fsPrevButton, fsNextButton, communityPanel, chatList, chatInput, sendChatButton = CreateMainGUI()
+
+-- Funciones de chat (solo para admins)
+if isAdmin and communityPanel then
+	sendChatButton.MouseButton1Click:Connect(function()
+		local message = chatInput.Text
+		if message ~= "" then
+			SendChatEvent:FireServer(message)
+			chatInput.Text = ""
+		end
+	end)
+	
+	chatInput.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			sendChatButton.MouseButton1Click:Fire()
+		end
+	end)
+	
+	-- Recibir mensajes de chat en tiempo real
+	ChatUpdateEvent.OnClientEvent:Connect(function(chatData)
+		table.insert(chatMessages, chatData)
+		CreateChatMessage(chatData, chatList)
+	end)
+end
 
 -- Iniciar animación de ondas
 AnimateWaves(waves)
